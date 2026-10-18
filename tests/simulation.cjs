@@ -1,7 +1,7 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
-let clock=0,tick;
+let clock=0,tick,frame;
 const gradient={addColorStop(){}};
-const context=new Proxy({createLinearGradient:()=>gradient,createRadialGradient:()=>gradient},{get:(o,k)=>k in o?o[k]:()=>{},set:(o,k,v)=>(o[k]=v,true)});
+const context=new Proxy({createLinearGradient:()=>gradient,createRadialGradient:()=>gradient,ellipse(x,y,rx,ry){assert([x,y,rx,ry].every(Number.isFinite));assert(rx>=0&&ry>=0);}},{get:(o,k)=>k in o?o[k]:()=>{},set:(o,k,v)=>(o[k]=v,true)});
 class Element{
  constructor(id=''){this.id=id;this.style={};this.hidden=false;this.disabled=false;this.dataset={};this.events={};this.value='';this.textContent='';this.classList={add(){},remove(){},toggle(){}};this.nextElementSibling={textContent:''};this.firstChild={textContent:id};}
  addEventListener(n,f){(this.events[n]??=[]).push(f);}
@@ -16,12 +16,13 @@ const param=()=>({value:0,setTargetAtTime(){},setValueAtTime(){},linearRampToVal
 const node=()=>({gain:param(),frequency:param(),Q:param(),pan:param(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),connect(){},disconnect(){},start(){},stop(){}});
 class Audio{constructor(){this.sampleRate=8000;this.currentTime=0;this.destination={};this.state='running';}resume(){return Promise.resolve();}createGain(){return node();}createDynamicsCompressor(){return node();}createBiquadFilter(){return node();}createConvolver(){return node();}createStereoPanner(){return node();}createBufferSource(){return node();}createOscillator(){return node();}createBuffer(ch,len){const data=Array.from({length:ch},()=>new Float32Array(Math.ceil(len)));return{getChannelData:i=>data[i]};}}
 const window={AudioContext:Audio,addEventListener(){}};
-const sandbox={document,window,console,localStorage:{getItem(){return null;},setItem(){}},matchMedia:()=>({matches:true}),navigator:{},devicePixelRatio:1,performance:{now:()=>clock},requestAnimationFrame(){},setInterval:f=>{tick=f;},ResizeObserver:class{observe(){}}};
+const sandbox={document,window,console,localStorage:{getItem(){return null;},setItem(){}},matchMedia:()=>({matches:false}),navigator:{},devicePixelRatio:1,performance:{now:()=>clock},requestAnimationFrame:f=>{frame=f;},setInterval:f=>{tick=f;},ResizeObserver:class{observe(){}}};
 vm.runInNewContext(fs.readFileSync('public/app.js','utf8'),sandbox);
 const snapshot=()=>window.yohaku.snapshot();
-const advance=seconds=>{for(let i=0;i<Math.ceil(seconds/.05);i++){clock+=50;tick();}};
+const advance=seconds=>{for(let i=0;i<Math.ceil(seconds/.05);i++){clock+=50;tick();if(i%20===0)frame(clock);}};
 const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surface)&&Number.isFinite(s.core));assert(s.water>=0);assert(s.evaporation>=0);assert(s.surface>90&&s.surface<400);});
 (async()=>{
+ frame(clock);
  await elements.enter.onclick();assert(snapshot().playing);assert.equal(snapshot().audioState,'running');
  const initial=snapshot().stones.map(s=>s.surface);
  elements.fill.onclick();assert.equal(snapshot().water,160);assert(!elements.pour.disabled);
