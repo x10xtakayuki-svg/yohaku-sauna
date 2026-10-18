@@ -4,6 +4,8 @@
 
 柔らかなロウリュと、消えていく水の音を聴くためのブラウザアプリです。Canvasでサウナ室を描き、Web Audio APIで音をリアルタイムに合成します。
 
+**[アプリを使う](https://x10xtakayuki-svg.github.io/yohaku-sauna/)** — スマートフォンでも利用できます。「サウナに入る」を押すと音が始まります。
+
 ## できること
 
 - **セルフロウリュ**：バケツで水を汲み、石を押し続けて注水。押したまま動かすと注ぐ位置が変わります。
@@ -55,7 +57,7 @@ node tests/simulation.cjs
 
 Node.jsを実行できる環境では `npm start` で配信できます。`PORT`環境変数を読み、未設定なら8080を使用し、`0.0.0.0`で待ち受けます。`GET /health` は `ok` を返します。APIキーやデータベースは不要です。
 
-静的ホスティングの場合は `public/` の内容を配信します。このリポジトリへの保存だけではWebサイトの公開は行いません。
+静的ホスティングの場合は `public/` の内容を配信します。GitHub Pagesでは、`main`へのpush時にGitHub Actionsが検査を実行し、`public/`を自動公開します。手動で公開し直す場合はActionsの「Deploy Yohaku to GitHub Pages」から実行できます。
 
 ## 実装上の前提
 
