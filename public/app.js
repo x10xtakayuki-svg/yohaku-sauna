@@ -8,7 +8,7 @@ let prefs={volume:45,distance:60,duration:10,flow:35};
 try{prefs={...prefs,...JSON.parse(localStorage.getItem('yohaku-settings')||'{}')};}catch{}
 for(const k of ['volume','distance','flow'])prefs[k]=clamp(Number(prefs[k])||0,k==='flow'?10:0,100);
 if(![0,5,10,20].includes(prefs.duration))prefs.duration=10;
-const state={started:false,playing:false,mode:'manual',pattern:'drops',water:0,pouring:false,elapsed:0,autoClock:0,nextDrop:1,simTime:0,stream:0,fillFlash:0,focus:false,ended:false,secretFound:false,luckyWater:0,secretGlow:0};
+const state={started:false,playing:false,mode:'manual',pattern:'drops',water:0,pouring:false,elapsed:0,autoClock:0,nextDrop:1,simTime:0,stream:0,fillFlash:0,focus:false,ended:false,secretFound:false,luckyWater:0,secretGlow:0,autoDim:0};
 const ladle={x:487,y:563,targetX:487,targetY:563,angle:-.35,drag:false};
 let view={w:1200,h:760,s:1,ox:0,oy:0}, previous=performance.now(), uiClock=0, particles=[], delayed=[];
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -22,7 +22,7 @@ for(let row=0;row<4;row++){
     const x=752+(col-2.5)*spread*.86+(rnd()-.5)*20;
     const y=325+row*35+(rnd()-.5)*22;
     const r=34+rnd()*15;
-    stones.push({x,y,r,ts:295+rnd()*45,tc:340+rnd()*35,water:0,wet:0,evap:0,rough:.7+rnd()*.6,cap:65+rnd()*45,sprite:null,lucky:row===3&&col===3});
+    stones.push({x,y,r,ts:295+rnd()*45,tc:340+rnd()*35,water:0,wet:0,evap:0,light:0,lightShown:0,rough:.7+rnd()*.6,cap:65+rnd()*45,sprite:null,lucky:row===3&&col===3});
   }
 }
 stones.sort((a,b)=>a.y-b.y);
@@ -105,7 +105,7 @@ function save(){try{localStorage.setItem('yohaku-settings',JSON.stringify(prefs)
 function updateWater(){const p=clamp(state.water/160,0,1);$('waterBar').style.width=p*100+'%';$('waterText').textContent=p<.01?'柄杓は空です':p>.95?'水を汲みました':'水が残っています';$('pour').disabled=!state.playing||state.water<=0||state.mode!=='manual';}
 function nearest(x,y){return stones.reduce((best,s)=>Math.hypot(x-s.x,y-s.y)<Math.hypot(x-best.x,y-best.y)?s:best,stones[0]);}
 function addWater(x,y,amount,impact=true){
-  const s=nearest(x,y);s.water+=amount;
+  const s=nearest(x,y);s.water+=amount;s.light=Math.min(1,s.light+amount*.45);
   if(s.lucky&&state.mode==='manual'&&state.pouring&&!state.secretFound){state.luckyWater+=amount;if(state.luckyWater>=18){state.secretFound=true;state.secretGlow=4;hint('……石も、ととのいました。');announce('……石も、ととのいました。');}}
   if(impact&&Math.random()<.2)sound.burst('impact',Math.min(1,amount*.7),x);
   if(!reducedMotion&&Math.random()<.5)particles.push({kind:'splash',x:s.x,y:s.y,vx:(Math.random()-.5)*65,vy:-30-Math.random()*35,life:.5,max:.5,size:1.5});
@@ -137,6 +137,7 @@ function beginPour(x=745,y=405){
 function stopPour(){state.pouring=false;canvas.classList.remove('pouring');$('pour').classList.remove('held');}
 function setMode(mode){
   stopPour();state.mode=mode;state.autoClock=0;state.nextDrop=.7;
+  document.body.classList.toggle('auto-ambience',mode==='auto');
   for(const [id,m] of [['manual','manual'],['auto','auto']]){$(id).classList.toggle('selected',mode===m);$(id).setAttribute('aria-pressed',String(mode===m));}
   $('manualPanel').hidden=mode!=='manual';$('autoPanel').hidden=mode!=='auto';
   if(mode==='auto'){ladle.targetX=487;ladle.targetY=563;hint('何もせず、音にまかせて。');}else hint('バケツで水を汲んで、石にゆっくり注ぐ。');
@@ -201,9 +202,9 @@ function simulate(dt){
       if(cycle>3&&Math.random()<dt*.3)sound.burst('drop',.25,x);
     }
   }
-  for(let i=delayed.length-1;i>=0;i--){delayed[i].wait-=dt;if(delayed[i].wait<=0){const d=delayed.splice(i,1)[0];d.stone.water+=d.amount;sound.burst('drop',.2,d.stone.x);}}
+  for(let i=delayed.length-1;i>=0;i--){delayed[i].wait-=dt;if(delayed[i].wait<=0){const d=delayed.splice(i,1)[0];d.stone.water+=d.amount;d.stone.light=Math.min(1,d.stone.light+d.amount*.25);sound.burst('drop',.2,d.stone.x);}}
   for(let i=0;i<stones.length;i++){
-    const s=stones[i];const transfer=(s.tc-s.ts)*3.8*dt;
+    const s=stones[i];s.light*=Math.exp(-dt/2.8);const transfer=(s.tc-s.ts)*3.8*dt;
     s.ts+=transfer/s.cap;s.tc-=transfer/(s.cap*7);s.tc+=(355-s.tc)*.0035*dt;s.ts+=(115-s.ts)*.0015*dt;
     const potential=Math.max(0,s.ts-98)*.011*s.rough;
     const evap=Math.min(s.water,potential*dt,Math.max(0,(s.ts-95)*s.cap)/2450);
@@ -336,12 +337,39 @@ function drawAtmosphere(g){
   g.save();for(let i=0;i<15;i++){const x=850+Math.sin(i*4.17+state.simTime*.025)*180,y=190+(i*43+state.simTime*(1+i%3))%330;ellipse(g,x,y,.6,.6,`rgba(235,217,166,${.045+Math.sin(i)*.02})`);}g.restore();
 }
 
-function resize(){const r=canvas.getBoundingClientRect();const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);view.w=r.width;view.h=r.height;view.s=r.height/760;view.ox=r.width*(r.width<700?.5:.65)-625*view.s;view.oy=0;view.dpr=dpr;}
+// Low-resolution light masks keep the soft illumination inexpensive on phones.
+// The light follows actual water contacts, rather than a looping spotlight.
+const dimLayer=document.createElement('canvas'),dimCtx=dimLayer.getContext('2d');
+function drawAutoLighting(g,dt){
+  const target=state.started&&!state.ended&&state.mode==='auto'?1:0;
+  state.autoDim=reducedMotion?target:lerp(state.autoDim,target,1-Math.exp(-dt/1.1));
+  stones.forEach(s=>{s.lightShown=lerp(s.lightShown,s.light,1-Math.exp(-dt*5));});
+  if(state.autoDim<.002)return;
+  dimCtx.setTransform(1,0,0,1,0,0);dimCtx.clearRect(0,0,dimLayer.width,dimLayer.height);
+  dimCtx.setTransform(dimLayer.width/view.w,0,0,dimLayer.height/view.h,0,0);
+  dimCtx.globalCompositeOperation='source-over';dimCtx.fillStyle=`rgba(3,9,7,${state.autoDim*.7})`;dimCtx.fillRect(0,0,view.w,view.h);
+  dimCtx.globalCompositeOperation='destination-out';
+  for(const s of stones){
+    const strength=Math.sqrt(s.lightShown);if(strength<.025)continue;
+    const x=view.ox+s.x*view.s,y=view.oy+(s.y-8)*view.s,r=s.r*2.3*view.s;
+    const pool=dimCtx.createRadialGradient(x,y,3*view.s,x,y,r);
+    pool.addColorStop(0,`rgba(0,0,0,${strength*.94})`);pool.addColorStop(.35,`rgba(0,0,0,${strength*.72})`);pool.addColorStop(1,'rgba(0,0,0,0)');
+    dimCtx.fillStyle=pool;dimCtx.fillRect(x-r,y-r,r*2,r*2);
+  }
+  dimCtx.globalCompositeOperation='source-over';
+  g.save();g.setTransform(view.dpr,0,0,view.dpr,0,0);g.drawImage(dimLayer,0,0,view.w,view.h);
+  // A very small warm reflection, like a concealed lamp grazing wet stone.
+  g.globalCompositeOperation='screen';
+  for(const s of stones){if(s.lightShown<.025)continue;const x=view.ox+(s.x+8)*view.s,y=view.oy+(s.y-17)*view.s,r=s.r*1.6*view.s;const light=g.createRadialGradient(x,y,0,x,y,r);light.addColorStop(0,`rgba(232,210,163,${s.lightShown*state.autoDim*.075})`);light.addColorStop(1,'rgba(232,210,163,0)');g.fillStyle=light;g.fillRect(x-r,y-r,r*2,r*2);}
+  g.restore();
+}
+function resize(){const r=canvas.getBoundingClientRect();const dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);view.w=r.width;view.h=r.height;view.s=r.height/760;view.ox=r.width*(r.width<700?.5:.65)-625*view.s;view.oy=0;view.dpr=dpr;dimLayer.width=Math.max(1,Math.round(r.width*.5));dimLayer.height=Math.max(1,Math.round(r.height*.5));}
 new ResizeObserver(resize).observe(canvas);resize();
 function render(now){
   const dt=Math.min(.05,(now-previous)/1000);previous=now;
   ctx.setTransform(view.dpr,0,0,view.dpr,0,0);ctx.clearRect(0,0,view.w,view.h);ctx.drawImage(background,0,0,view.w,view.h);ctx.translate(view.ox,view.oy);ctx.scale(view.s,view.s);
   drawHeater(ctx);drawBucket(ctx);drawLadle(ctx,dt);drawStream(ctx);drawParticles(ctx,dt);drawAtmosphere(ctx);
+  drawAutoLighting(ctx,dt);
   requestAnimationFrame(render);
 }
 requestAnimationFrame(render);
@@ -350,6 +378,6 @@ requestAnimationFrame(render);
 let lastTick=performance.now();
 setInterval(()=>{const now=performance.now(),delta=Math.max(0,(now-lastTick)/1000);lastTick=now;const step=Math.min(.2,delta);if(state.playing&&delta>step){state.elapsed+=delta-step;if(state.mode==='auto')state.autoClock+=delta-step;}simulate(step);},50);
 // A small read-only diagnostic surface for checking physical invariants.
-window.yohaku={snapshot:()=>({started:state.started,playing:state.playing,mode:state.mode,pattern:state.pattern,water:state.water,elapsed:state.elapsed,pouring:state.pouring,secretFound:state.secretFound,audioState:sound.ctx?.state||'not-started',stones:stones.map(s=>({x:s.x,y:s.y,lucky:s.lucky,surface:s.ts,core:s.tc,water:s.water,evaporation:s.evap})),particles:particles.length})};
+window.yohaku={snapshot:()=>({started:state.started,playing:state.playing,mode:state.mode,pattern:state.pattern,water:state.water,elapsed:state.elapsed,pouring:state.pouring,secretFound:state.secretFound,lighting:{dim:state.autoDim,activeSpots:stones.filter(s=>s.light>.01).length},audioState:sound.ctx?.state||'not-started',stones:stones.map(s=>({x:s.x,y:s.y,lucky:s.lucky,surface:s.ts,core:s.tc,water:s.water,evaporation:s.evap,light:s.light})),particles:particles.length})};
 })();
 

@@ -20,7 +20,7 @@ const sandbox={document,window,console,localStorage:{getItem(){return null;},set
 vm.runInNewContext(fs.readFileSync('public/app.js','utf8'),sandbox);
 const snapshot=()=>window.yohaku.snapshot();
 const advance=seconds=>{for(let i=0;i<Math.ceil(seconds/.05);i++){clock+=50;tick();if(i%20===0)frame(clock);}};
-const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surface)&&Number.isFinite(s.core));assert(s.water>=0);assert(s.evaporation>=0);assert(s.surface>90&&s.surface<400);});
+const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surface)&&Number.isFinite(s.core));assert(s.water>=0);assert(s.evaporation>=0);assert(s.surface>90&&s.surface<400);assert(Number.isFinite(s.light)&&s.light>=0&&s.light<=1);});
 (async()=>{
  frame(clock);
  await elements.enter.onclick();assert(snapshot().playing);assert.equal(snapshot().audioState,'running');
@@ -35,13 +35,14 @@ const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surfa
  elements.scene.fire('pointerdown',{pointerId:7,clientX:offset+lucky.x*scale,clientY:lucky.y*scale});advance(1);elements.scene.fire('pointerup',{pointerId:7});assert(snapshot().secretFound);assert(!snapshot().pouring);
  elements.auto.onclick();assert.equal(snapshot().mode,'auto');
  elements.scene.fire('pointerdown',{pointerId:8,clientX:offset+752*scale,clientY:603*scale});assert(elements.announcement.textContent.includes('会議はありません'));assert(!snapshot().pouring);
- let reacted=false;for(let i=0;i<100;i++){advance(.1);reacted||=snapshot().stones.some(s=>s.evaporation>0);}assert(reacted);invariant();
+ let reacted=false;for(let i=0;i<100;i++){advance(.1);reacted||=snapshot().stones.some(s=>s.evaporation>0);}assert(reacted);assert(snapshot().lighting.dim>.95);assert(snapshot().lighting.activeSpots>0);invariant();
  patterns[1].onclick();advance(45);invariant();
  patterns[2].onclick();advance(1.5);assert(snapshot().stones.reduce((a,s)=>a+s.evaporation,0)>1);advance(60);assert(snapshot().stones.reduce((a,s)=>a+s.evaporation,0)>1);invariant();
  elements.pause.onclick();const elapsed=snapshot().elapsed;advance(3);assert.equal(snapshot().elapsed,elapsed);elements.pause.onclick();
  durations[0].onclick();advance(301);assert(!snapshot().playing);assert.equal(elements.ending.hidden,false);
  await elements.again.onclick();durations[3].onclick();advance(1201);assert(snapshot().playing);invariant();
  elements.manual.onclick();elements.fill.onclick();elements.pour.fire('keydown',{code:'Space',repeat:false});elements.pour.fire('blur');assert(!snapshot().pouring);
+ for(let i=0;i<110;i++){clock+=50;tick();frame(clock);}assert(snapshot().lighting.dim<.02);invariant();
  const before=snapshot().elapsed;clock+=15000;tick();assert(snapshot().elapsed>=before+15);
  console.log('PASS: audio initialization; fill/pour/release; local cooling; empty ladle; all 3 automatic patterns; 60-second repeat; pause/resume; timed fade/end; free session; focus loss; background clock; finite thermal states and non-negative water.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

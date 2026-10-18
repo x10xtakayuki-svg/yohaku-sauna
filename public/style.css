@@ -12,3 +12,9 @@
 .welcome{background:#0b130ea6;backdrop-filter:blur(3px)}
 .welcome-inner{border-radius:8px;background:radial-gradient(ellipse at center,#101b1359,transparent 72%)}
 @media(prefers-reduced-motion:reduce){.room-tag,.welcome{backdrop-filter:none}}
+
+.room-caption,.room-tag,.interaction-note{transition:opacity 1.8s ease}
+.auto-ambience .room-caption{opacity:.38}
+.auto-ambience .room-tag{opacity:.6}
+.auto-ambience .interaction-note{opacity:.65}
+.focus-mode.auto-ambience .room-caption,.focus-mode.auto-ambience .room-tag,.focus-mode.auto-ambience .interaction-note{opacity:0}
