@@ -31,7 +31,11 @@ const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surfa
  assert(snapshot().stones.some((s,i)=>s.surface<initial[i]-5));
  const water=snapshot().water;advance(2);assert.equal(snapshot().water,water);invariant();
  elements.pour.fire('keydown',{code:'Space',repeat:false});advance(10);assert.equal(snapshot().water,0);assert(elements.pour.disabled);assert(!snapshot().pouring);
- elements.auto.onclick();assert.equal(snapshot().mode,'auto');advance(10);assert(snapshot().stones.some(s=>s.evaporation>0));invariant();
+ elements.fill.onclick();const lucky=snapshot().stones.find(s=>s.lucky);const scale=500/760,offset=1200*.65-625*scale;
+ elements.scene.fire('pointerdown',{pointerId:7,clientX:offset+lucky.x*scale,clientY:lucky.y*scale});advance(1);elements.scene.fire('pointerup',{pointerId:7});assert(snapshot().secretFound);assert(!snapshot().pouring);
+ elements.auto.onclick();assert.equal(snapshot().mode,'auto');
+ elements.scene.fire('pointerdown',{pointerId:8,clientX:offset+752*scale,clientY:603*scale});assert(elements.announcement.textContent.includes('会議はありません'));assert(!snapshot().pouring);
+ let reacted=false;for(let i=0;i<100;i++){advance(.1);reacted||=snapshot().stones.some(s=>s.evaporation>0);}assert(reacted);invariant();
  patterns[1].onclick();advance(45);invariant();
  patterns[2].onclick();advance(1.5);assert(snapshot().stones.reduce((a,s)=>a+s.evaporation,0)>1);advance(60);assert(snapshot().stones.reduce((a,s)=>a+s.evaporation,0)>1);invariant();
  elements.pause.onclick();const elapsed=snapshot().elapsed;advance(3);assert.equal(snapshot().elapsed,elapsed);elements.pause.onclick();
