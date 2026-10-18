@@ -1,0 +1,9 @@
+{
+  "name": "yohaku-sauna",
+  "version": "1.0.0",
+  "private": true,
+  "description": "余白 — おうちのサウナ",
+  "type": "module",
+  "engines": { "node": ">=20.3" },
+  "scripts": { "start": "node server.mjs" }
+}

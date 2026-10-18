@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#141b18"><meta name="description" content="家のソファーを、静かなサウナの一席に。自分で水を汲んで注ぐ、音のための小さなサウナ。">
+  <title>余白 — おうちのサウナ</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="app">
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="余白 ホーム"><span class="brand-mark">余白<span class="brand-dot">。</span></span><span class="brand-sub">YOHAKU<span>おうちのサウナ</span></span></a>
+    <div class="top-right"><span id="sessionTime" class="time" aria-label="残り時間">10:00</span><span class="separator"></span><button id="focus" class="icon-button" aria-label="画面を暗くする" title="画面を暗くする">☾</button><button id="settings" class="icon-button" aria-label="音と時間の設定" title="音と時間の設定"><svg viewBox="0 0 24 24"><path d="M5 4v16M12 4v16M19 4v16M2 8h6m1 8h6m1-8h6"/></svg></button></div>
+  </header>
+  <section class="room" aria-label="静かなサウナ室">
+    <canvas id="scene" width="1200" height="760" role="img" aria-label="木の壁に囲まれたサウナストーブ。手前のバケツで水を汲み、石を押して注げます。"></canvas>
+    <div class="room-vignette"></div>
+    <div class="room-caption"><span class="eyebrow"><i></i> YOUR QUIET PLACE</span><h1>ただ、ここにいる。</h1><p>水の音に、ひと息を。</p></div>
+    <div class="room-tag"><span class="status-dot"></span><span id="roomState">静かなサウナ室</span></div>
+    <div class="interaction-note" id="hint"><span>01</span> バケツで水を汲んで、石にゆっくり注ぐ。</div>
+    <button id="restore" class="restore" hidden>画面に戻る</button>
+    <div id="welcome" class="welcome"><div class="welcome-inner"><span class="eyebrow">A LITTLE SPACE FOR YOURSELF</span><h2>今日の余白を、ここに。</h2><p>何もしなくても。<br>一杯だけ、水をかけても。</p><button id="enter" class="primary">サウナに入る <span>→</span></button><span class="welcome-foot">ヘッドホンで、より深い静けさを。</span></div></div>
+    <div id="ending" class="welcome" hidden><div class="welcome-inner"><span class="eyebrow">WELCOME BACK</span><h2>おかえりなさい。</h2><p>あなたのための、静かな時間。</p><button id="again" class="primary">もう少し、ここにいる <span>→</span></button></div></div>
+  </section>
+  <section class="controls" aria-label="サウナの操作">
+    <div class="control-top"><div class="mode-switch" role="group" aria-label="ロウリュのモード"><button class="selected" id="manual" aria-pressed="true">セルフロウリュ</button><button id="auto" aria-pressed="false">オートロウリュ</button></div><div class="sound-label"><span class="sound-bars"><i></i><i></i><i></i><i></i></span><span id="soundText">静けさを、聴く。</span></div><button class="pause-button" id="pause" aria-label="再生" disabled><span id="pauseIcon">Ⅱ</span><span id="pauseText">ひと休み</span></button></div>
+    <div id="manualPanel" class="control-bottom"><div class="action-group"><button id="fill" class="outline-button"><svg viewBox="0 0 24 24"><path d="M7 8h10l-1 12H8L7 8Zm1-3c0-4 8-4 8 0M5 8h14"/></svg>水を汲む</button><button id="pour" class="outline-button" disabled><svg viewBox="0 0 24 24"><path d="m4 5 8 3-3 8-7-3M12 8l7-3m0 7c-4 5-4 7-1 7s3-2 1-7Z"/></svg>押して注ぐ</button><span class="water-indicator"><span id="waterBar"></span></span><span id="waterText" class="small">柄杓は空です</span></div><label class="range-label">水の量 <input id="flow" type="range" min="10" max="100" value="35" aria-label="注ぐ水の量"><span>細く</span></label></div>
+    <div id="autoPanel" class="control-bottom" hidden><div class="patterns" role="group" aria-label="自動注水パターン"><button data-pattern="drops" class="selected" aria-pressed="true">雨だれ<span>ぽと、ぽと。</span></button><button data-pattern="thread" aria-pressed="false">水糸<span>しずかに、続く。</span></button><button data-pattern="wave" aria-pressed="false">一分の波<span>ゆっくり、満ちる。</span></button></div><span class="small auto-note">石の温度に合わせて、少しずつ。</span></div>
+  </section>
+  <footer><span>どこにも行かない、サウナの時間。</span><button id="help">使い方 <span>?</span></button></footer>
+  <dialog id="settingsDialog"><form method="dialog"><div class="dialog-head"><div><span class="eyebrow">MAKE YOURSELF COMFORTABLE</span><h2>心地よい、その加減で。</h2></div><button class="icon-button" aria-label="閉じる">×</button></div><label class="setting-label">音の大きさ <span id="volumeValue">45%</span><input id="volume" type="range" min="0" max="100" value="45"></label><label class="setting-label">音の距離 <span id="distanceValue">ベンチから</span><input id="distance" type="range" min="0" max="100" value="60"></label><div class="setting-label">過ごす時間<div class="durations" role="group" aria-label="過ごす時間"><button type="button" data-min="5">5分</button><button type="button" data-min="10" class="selected" aria-pressed="true">10分</button><button type="button" data-min="20">20分</button><button type="button" data-min="0">自由</button></div></div><p class="settings-note">終了時は、音がゆっくり静まります。<br>画面を暗くするには、右上の月のマークを。<br>画面ロック中の再生は、端末・ブラウザにより止まる場合があります。</p></form></dialog>
+  <dialog id="helpDialog"><form method="dialog"><div class="dialog-head"><h2>一杯の、ロウリュ。</h2><button class="icon-button" aria-label="閉じる">×</button></div><ol><li><strong>水を汲む</strong><p>バケツをタップ、または「水を汲む」を押します。柄杓をバケツにドラッグしても汲めます。</p></li><li><strong>ゆっくり注ぐ</strong><p>石を押し続けると、その場所へ注ぎます。「押して注ぐ」ボタンは、キーボードのスペースキーにも対応しています。</p></li><li><strong>余韻を聴く</strong><p>離すと水が止まります。石の隙間から返ってくる、小さな音をどうぞ。</p></li></ol><p class="settings-note">オートロウリュなら、操作せずに過ごせます。音はブラウザ内で合成しています。</p></form></dialog>
+  <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+</main>
+<script src="app.js"></script>
+</body></html>
