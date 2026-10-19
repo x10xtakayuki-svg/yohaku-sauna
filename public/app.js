@@ -22,7 +22,7 @@ for(let row=0;row<4;row++){
   for(let col=0;col<6;col++){
     const spread=[45,55,58,51][row];
     const x=752+(col-2.5)*spread*.86+(rnd()-.5)*20;
-    const y=325+row*35+(rnd()-.5)*22;
+    const y=325+row*35+(rnd()-.5)*28;
     const r=34+rnd()*15;
     stones.push({x,y,r,ts:295+rnd()*45,tc:340+rnd()*35,water:0,wet:0,evap:0,light:0,lightShown:0,rough:.7+rnd()*.6,cap:65+rnd()*45,sprite:null,lucky:row===3&&col===3});
   }
@@ -30,13 +30,20 @@ for(let row=0;row<4;row++){
 stones.sort((a,b)=>a.y-b.y);
 function makeStone(stone){
   const c=document.createElement('canvas');c.width=256;c.height=208;const g=c.getContext('2d');
-  const points=[];const offset=rnd()*.5;
-  for(let i=0;i<12;i++){const a=i/12*Math.PI*2+offset;const r=.8+rnd()*.2;points.push([128+Math.cos(a)*117*r,99+Math.sin(a)*85*r]);}
+  // Broad broken faces, with a different lean and outline for each stone.
+  const points=[];const offset=rnd()*.65,lean=(rnd()-.5)*25;
+  for(let i=0;i<10;i++){const a=i/10*Math.PI*2+offset;const r=.76+rnd()*.24;const y=Math.sin(a)*85*r;points.push([128+Math.cos(a)*117*r+y*lean/85,99+y]);}
   const outline=()=>{g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();};
   outline();g.save();g.clip();
-  const warmth=rnd();const shade=g.createLinearGradient(190,10,70,190);shade.addColorStop(0,warmth>.5?'#7d7b70':'#747e79');shade.addColorStop(.3,'#454e48');shade.addColorStop(.66,'#2b3530');shade.addColorStop(1,'#111a17');g.fillStyle=shade;g.fillRect(0,0,256,208);
+  const warmth=rnd();const shade=g.createLinearGradient(190,10,70,190);shade.addColorStop(0,warmth>.6?'#898273':'#7a817e');shade.addColorStop(.3,'#505651');shade.addColorStop(.66,'#303733');shade.addColorStop(1,'#111916');g.fillStyle=shade;g.fillRect(0,0,256,208);
   const center=[100+rnd()*45,69+rnd()*24];
   for(let i=0;i<points.length;i++){g.beginPath();g.moveTo(...center);g.lineTo(...points[i]);g.lineTo(...points[(i+1)%points.length]);g.closePath();g.fillStyle=i>5&&i<10?`rgba(213,197,159,${.04+rnd()*.1})`:`rgba(6,13,9,${rnd()*.17})`;g.fill();}
+  for(let i=0;i<7;i++){
+    const x=35+rnd()*150,y=22+rnd()*105;
+    path(g,[[x,y],[x+14+rnd()*35,y-5],[x+31,y+11+rnd()*19],[x-8,y+24]]);
+    g.fillStyle=i%3===0?'#c5c1af18':'#08130e1c';g.fill();
+    g.beginPath();g.moveTo(x,y);g.lineTo(x+20,y-3);g.strokeStyle='#d4cbb52b';g.lineWidth=.6;g.stroke();
+  }
   // Mineral inclusions, pores and fractured veins are baked once per stone.
   for(let i=0;i<3400;i++){const x=rnd()*256,y=rnd()*208,r=.4+rnd()*1.8;g.fillStyle=rnd()>.6?`rgba(207,200,175,${rnd()*.24})`:`rgba(7,17,11,${rnd()*.3})`;g.fillRect(x,y,r,r*.7);}
   for(let i=0;i<38;i++){let x=rnd()*256,y=rnd()*208;g.beginPath();g.moveTo(x,y);for(let j=0;j<4;j++){x+=rnd()*17-6;y+=rnd()*13;g.lineTo(x,y);}g.strokeStyle=i%5===0?'#d0c1a137':'#0c171554';g.lineWidth=i%5===0?.65:1.1;g.stroke();}
@@ -45,7 +52,12 @@ function makeStone(stone){
   if(stone.lucky){g.strokeStyle='#111a17aa';g.lineWidth=2.6;g.lineCap='round';for(const x of [107,149]){g.beginPath();g.moveTo(x-8,90);g.quadraticCurveTo(x,97,x+8,89);g.stroke();}g.beginPath();g.moveTo(119,116);g.quadraticCurveTo(129,125,140,114);g.stroke();}
   const wet=document.createElement('canvas');wet.width=256;wet.height=208;const w=wet.getContext('2d');w.drawImage(c,0,0);w.globalCompositeOperation='source-atop';w.fillStyle='#03150f77';w.fillRect(0,0,256,208);
   const sheen=w.createRadialGradient(176,46,0,166,59,93);sheen.addColorStop(0,'#fff0cb8a');sheen.addColorStop(.18,'#e9dfbd32');sheen.addColorStop(.55,'#adc7b010');sheen.addColorStop(1,'#fff0');w.fillStyle=sheen;w.fillRect(0,0,256,208);
-  for(let i=0;i<15;i++){const x=45+rnd()*160,y=25+rnd()*90;w.beginPath();w.ellipse(x,y,1+rnd()*5,.6+rnd(),-.4,0,Math.PI*2);w.fillStyle='#e5ebd24f';w.fill();}stone.wetSprite=wet;return c;
+  for(let i=0;i<9;i++){
+    const x=55+rnd()*145,y=28+rnd()*85;
+    w.beginPath();w.moveTo(x,y);w.bezierCurveTo(x-5,y+9,x+4,y+18,x-4,y+31);
+    w.strokeStyle='#bccbb527';w.lineWidth=.7+rnd();w.stroke();
+    w.beginPath();w.ellipse(x,y,1+rnd()*4,.5+rnd(),-.4,0,Math.PI*2);w.fillStyle='#e5ebd263';w.fill();
+  }stone.wetSprite=wet;return c;
 }
 stones.forEach(s=>s.sprite=makeStone(s));
 
@@ -109,7 +121,7 @@ function hint(t){$('hint').innerHTML='<span>·</span> '+t;}
 function save(){try{localStorage.setItem('yohaku-settings',JSON.stringify(prefs));}catch{}}
 function duration(){return state.experience==='meditation'?prefs.restDuration:prefs.duration;}
 function resting(){return state.experience==='meditation'&&['rest','settling'].includes(state.phase);}
-function updateWater(){const p=clamp(state.water/160,0,1);$('waterBar').style.width=p*100+'%';$('waterText').textContent=p<.01?'柄杓は空です':p>.95?'水を汲みました':'水が残っています';$('pour').disabled=!state.playing||state.water<=0||state.mode!=='manual'||state.phase==='settling';}
+function updateWater(){const p=clamp(state.water/160,0,1);$('waterBar').style.width=p*100+'%';$('waterText').textContent=p<.01?'ラドルは空です':p>.95?'水を汲みました':'水が残っています';$('pour').disabled=!state.playing||state.water<=0||state.mode!=='manual'||state.phase==='settling';}
 function nearest(x,y){return stones.reduce((best,s)=>Math.hypot(x-s.x,y-s.y)<Math.hypot(x-best.x,y-best.y)?s:best,stones[0]);}
 function addWater(x,y,amount,impact=true){
   if(amount<=0)return nearest(x,y);
@@ -172,7 +184,7 @@ function togglePause(){
 }
 function fill(){
   if(!state.playing||state.mode!=='manual'||state.phase==='settling')return;
-  state.ritualWait=null;state.water=160;state.fillFlash=1;ladle.targetX=403;ladle.targetY=551;sound.burst('fill',1,390);updateWater();hint('石を押し続けると、ゆっくり注げます。');announce('柄杓に水を汲みました');
+  state.ritualWait=null;state.water=160;state.fillFlash=1;ladle.targetX=403;ladle.targetY=551;sound.burst('fill',1,390);updateWater();hint('石を押し続けると、ゆっくり注げます。');announce('ラドルに水を汲みました');
 }
 function beginPour(x=745,y=405){
   if(!state.playing||state.mode!=='manual'||state.water<=0||state.phase==='settling')return;
@@ -182,7 +194,7 @@ function stopPour(){
   const wasPouring=state.pouring;state.pouring=false;canvas.classList.remove('pouring');$('pour').classList.remove('held');
   if(wasPouring&&state.phase==='ritual'){
     if(state.water<=.01&&state.ritualPoured>0){state.ritualWait=3;hint('余韻のあと、静かな休息へ。');}
-    else if(state.ritualPoured>0)hint('余韻を聴いたら、柄杓を戻して休めます。');
+    else if(state.ritualPoured>0)hint('余韻を聴いたら、ラドルを戻して休めます。');
     $('skipPour').hidden=state.ritualPoured>0;
   }
 }
@@ -250,7 +262,7 @@ function simulate(dt){
   if(['free','ritual'].includes(state.phase)&&state.mode==='manual'&&state.pouring){
     const amount=Math.min(state.water,(8+prefs.flow*.52)*dt);state.water=Math.max(0,state.water-amount);state.stream=amount/dt;
     addWater(state.pourX,state.pourY,amount);
-    if(state.water<=0){stopPour();if(state.phase==='free'){hint('最後の一滴まで、耳をすませて。');announce('柄杓が空になりました');}}
+    if(state.water<=0){stopPour();if(state.phase==='free'){hint('最後の一滴まで、耳をすませて。');announce('ラドルが空になりました');}}
     updateWater();
   }
   if(state.phase==='rest'){
@@ -373,7 +385,12 @@ function drawBucket(g){
   g.drawImage(bucketArt,275,450);
   const water=g.createLinearGradient(0,538,0,580);water.addColorStop(0,'#6e7d6888');water.addColorStop(.48,'#334e4188');water.addColorStop(1,'#142e25');ellipse(g,395,559,73,21,water);
   g.save();g.beginPath();g.ellipse(395,559,73,21,0,0,Math.PI*2);g.clip();
-  for(let i=0;i<5;i++){const p=(state.simTime*.12+i*.21)%1;g.beginPath();g.ellipse(392,558,p*95,p*27,0,0,Math.PI*2);g.strokeStyle=`rgba(212,222,190,${(1-p)*(.075+state.fillFlash*.28)})`;g.lineWidth=.8;g.stroke();}
+  // Rings come from dipping the ladle, rather than a permanent looping ripple.
+  if(state.fillFlash>0&&!reducedMotion)for(let i=0;i<4;i++){
+    const p=clamp((1-state.fillFlash)*1.25-i*.14,0,1);if(p<=0)continue;
+    g.beginPath();g.ellipse(403,554,5+p*89,2+p*25,0,0,Math.PI*2);
+    g.strokeStyle=`rgba(212,222,190,${(1-p)*state.fillFlash*.42})`;g.lineWidth=.8;g.stroke();
+  }
   for(let i=0;i<6;i++){const y=547+i*2.8;g.beginPath();g.moveTo(410+Math.sin(state.simTime+i)*3,y);g.quadraticCurveTo(425,y-2,438+Math.cos(state.simTime*.8+i)*4,y+1);g.strokeStyle=`rgba(249,214,145,${.08+Math.sin(i)*.04})`;g.lineWidth=1.7;g.stroke();}g.restore();
   g.beginPath();g.ellipse(395,554,85,31,0,0,Math.PI);g.strokeStyle='#d5bc8a';g.lineWidth=2.3;g.stroke();
 }
@@ -384,8 +401,9 @@ function drawLadle(g,dt){
   const handle=g.createLinearGradient(0,0,0,70);handle.addColorStop(0,'#d6b982');handle.addColorStop(.4,'#96764a');handle.addColorStop(1,'#453d28');path(g,[[12,2],[154,57],[155,65],[147,69],[8,18]]);g.fillStyle=handle;g.fill();g.shadowBlur=0;g.shadowOffsetY=0;
   for(let i=0;i<5;i++){g.beginPath();g.moveTo(22,9+i*1.4);g.lineTo(145,58+i*1.2);g.strokeStyle=i%2?'#e1be8233':'#332b2344';g.lineWidth=.7;g.stroke();}g.beginPath();g.moveTo(148,60);g.lineTo(150,63);g.strokeStyle='#302e23';g.lineWidth=2;g.stroke();
   // A brushed copper bowl picks up the warm wall light.
-  const copper=g.createLinearGradient(-37,0,36,10);copper.addColorStop(0,'#584932');copper.addColorStop(.2,'#b59a68');copper.addColorStop(.47,'#756340');copper.addColorStop(.8,'#d9bb81');copper.addColorStop(1,'#64583b');
+  const copper=g.createLinearGradient(-37,0,36,10);copper.addColorStop(0,'#503e2f');copper.addColorStop(.2,'#b89367');copper.addColorStop(.47,'#74543c');copper.addColorStop(.8,'#dbb681');copper.addColorStop(1,'#584a34');
   g.beginPath();g.moveTo(-35,-4);g.lineTo(-29,21);g.bezierCurveTo(-14,38,20,36,31,18);g.lineTo(36,-4);g.closePath();g.fillStyle=copper;g.fill();
+  for(let i=0;i<11;i++){g.beginPath();g.moveTo(-25,8+i*1.4);g.quadraticCurveTo(0,22+i*.45,29,7+i*1.1);g.strokeStyle=i%2?'#ead3a621':'#291f181b';g.lineWidth=.5;g.stroke();}
   ellipse(g,0,-4,36,24,'#c9b283');ellipse(g,0,-4,31,19,'#414e37');
   const inner=g.createLinearGradient(-25,-18,20,16);inner.addColorStop(0,'#202d21');inner.addColorStop(1,'#a29464');ellipse(g,0,-4,29,17,inner);
   g.beginPath();g.ellipse(0,-5,34,22,0,Math.PI*.95,Math.PI*1.9);g.strokeStyle='#ffedbb99';g.lineWidth=1;g.stroke();
@@ -407,7 +425,9 @@ const mistArt=document.createElement('canvas');mistArt.width=128;mistArt.height=
 function drawParticles(g,dt){
   for(let i=particles.length-1;i>=0;i--){const p=particles[i];if(state.playing){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;if(p.kind==='splash')p.vy+=140*dt;if(p.kind==='fall')p.vy+=200*dt;}if(p.life<=0||p.kind==='fall'&&p.y>440){particles.splice(i,1);continue;}
     if(p.kind==='steam'){
-      const age=1-p.life/p.max,size=p.size*(1+age*3.5);g.save();g.translate(p.x,p.y);g.rotate(Math.sin(age*2+p.max)*.5);g.globalAlpha=Math.sin(age*Math.PI)*.22;g.drawImage(mistArt,-size,-size,size*2,size*2);g.restore();p.x+=Math.sin(state.simTime*.6+p.max)*dt*6;
+      const age=1-p.life/p.max,size=p.size*(1+age*3.5);g.save();g.translate(p.x,p.y);g.rotate(Math.sin(age*2+p.max)*.5);
+      g.globalAlpha=Math.sin(age*Math.PI)*(state.experience==='meditation'?.15:.2);g.drawImage(mistArt,-size,-size,size*2,size*2);
+      g.globalAlpha*=.45;g.drawImage(mistArt,-size*.6,-size*1.4,size*1.3,size*2.1);g.restore();p.x+=Math.sin(state.simTime*.6+p.max)*dt*6;
     }else{const alpha=p.life/p.max;g.beginPath();g.moveTo(p.x-p.vx*.025,p.y-p.vy*.025);g.lineTo(p.x,p.y);g.strokeStyle=`rgba(195,223,209,${alpha*.55})`;g.lineWidth=p.size*.7;g.stroke();ellipse(g,p.x,p.y,p.size*.55,p.size*(p.kind==='fall'?1.5:.7),`rgba(236,235,199,${alpha*.85})`);}
   }
 }
