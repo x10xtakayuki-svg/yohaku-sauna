@@ -54,6 +54,8 @@ const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surfa
  advance(161);assert.equal(snapshot().phase,'settling');assert.equal(snapshot().pouring,false);advance(21);assert.equal(snapshot().phase,'finished');assert.equal(snapshot().gain,0);assert(snapshot().lighting.dim>.8);assert.equal(elements.ending.hidden,false);
  elements.backEntrance.onclick();assert.equal(snapshot().phase,'idle');assert.equal(elements.welcome.hidden,false);
  await elements.restEnter.onclick();assert.equal(snapshot().phase,'rest');assert.equal(focusedId,'restPause');advance(9);assert.equal(elements.restCue.hidden,true);assert(snapshot().gain>.99);assert.equal(snapshot().secretFound,true);
+ // Unequal water phrases have long gaps while the room bed keeps playing.
+ advance(11);assert.equal(snapshot().stream,0);assert(snapshot().playing);advance(15);assert(snapshot().stream>0);advance(15);assert.equal(snapshot().stream,0);advance(18);assert(snapshot().stream>0);
  elements.finishEarly.onclick();assert.equal(snapshot().phase,'settling');advance(6);assert(snapshot().playing);assert(snapshot().gain>.9);assert.match(elements.restTime.textContent,/00:1[45]/);advance(15);assert.equal(snapshot().phase,'finished');assert.equal(snapshot().gain,0);
  // Emptying a complete cup hands off only after the last pour and its tail.
  elements.backEntrance.onclick();await elements.enter.onclick();assert.equal(focusedId,'fill');elements.fill.onclick();elements.pour.fire('keydown',{code:'Space',repeat:false});advance(6.3);assert.equal(snapshot().phase,'ritual');assert.equal(snapshot().water,0);advance(3.5);assert.equal(snapshot().phase,'rest');invariant();

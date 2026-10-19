@@ -268,10 +268,11 @@ function simulate(dt){
   if(state.phase==='rest'){
     state.autoClock+=dt;const t=state.autoClock-state.restDelay;
     if(t>0){
-      // Short, soft pours separated by real silence. The first cup is allowed
-      // to finish before the automatic water starts; there is no audible cue.
-      const cycle=t%38;
-      const pulse=cycle<10?Math.sin(cycle/10*Math.PI)**2:cycle>28&&cycle<32?.09*Math.sin((cycle-28)/4*Math.PI)**2:0;
+      // Three unequal phrases leave space for the room bed and evaporation
+      // tails. Water fades at each edge; the background sound stays unchanged.
+      const cycle=t%86;
+      const phrase=cycle<8?[0,8,.8]:cycle>=31&&cycle<36?[31,5,.4]:cycle>=62&&cycle<74?[62,12,1]:null;
+      const pulse=phrase?phrase[2]*Math.sin((cycle-phrase[0])/phrase[1]*Math.PI)**2:0;
       const x=745+Math.sin(t*.08)*60,y=370+Math.sin(t*.055)*22;
       const hot=nearest(x,y).ts>150?1:.25,rate=pulse*2.1*hot;
       addWater(x,y,rate*dt,false);state.stream=rate*2;state.pourX=x;state.pourY=y;
@@ -479,5 +480,5 @@ requestAnimationFrame(render);
 let lastTick=performance.now();
 setInterval(()=>{const now=performance.now(),delta=Math.max(0,(now-lastTick)/1000);lastTick=now;const step=Math.min(.2,delta);if(state.playing&&delta>step){const missed=delta-step;state.audibleTime+=missed;if(state.phase==='free'||state.phase==='rest')state.elapsed+=missed;if(state.phase==='settling')state.tailTime+=missed;if(state.ritualWait!==null)state.ritualWait-=missed;if(state.mode==='auto')state.autoClock+=missed;}simulate(step);},50);
 // A small read-only diagnostic surface for checking physical invariants.
-window.yohaku={snapshot:()=>({started:state.started,playing:state.playing,mode:state.mode,pattern:state.pattern,experience:state.experience,phase:state.phase,gain:state.sessionGain,tailTime:state.tailTime,water:state.water,elapsed:state.elapsed,pouring:state.pouring,secretFound:state.secretFound,lighting:{dim:state.autoDim,activeSpots:stones.filter(s=>s.light>.01).length},audioState:sound.ctx?.state||'not-started',stones:stones.map(s=>({x:s.x,y:s.y,lucky:s.lucky,surface:s.ts,core:s.tc,water:s.water,evaporation:s.evap,light:s.light})),particles:particles.length})};
+window.yohaku={snapshot:()=>({started:state.started,playing:state.playing,mode:state.mode,pattern:state.pattern,experience:state.experience,phase:state.phase,gain:state.sessionGain,stream:state.stream,tailTime:state.tailTime,water:state.water,elapsed:state.elapsed,pouring:state.pouring,secretFound:state.secretFound,lighting:{dim:state.autoDim,activeSpots:stones.filter(s=>s.light>.01).length},audioState:sound.ctx?.state||'not-started',stones:stones.map(s=>({x:s.x,y:s.y,lucky:s.lucky,surface:s.ts,core:s.tc,water:s.water,evaporation:s.evap,light:s.light})),particles:particles.length})};
 })();
