@@ -116,6 +116,11 @@ class Soundscape{
 }
 const sound=new Soundscape();
 const smoothstep=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
+// A finite-band, 1/f-inspired drift: slower components carry more energy.
+// This shapes only water timing and flow; the low room bed is untouched.
+function waterDrift(t){
+  return (Math.sin(t*Math.PI/80+.4)+Math.SQRT1_2*Math.sin(t*Math.PI/40+1.7)+.5*Math.sin(t*Math.PI/20+3.1)+Math.sqrt(.125)*Math.sin(t*Math.PI/10+.8))/(1+Math.SQRT1_2+.5+Math.sqrt(.125));
+}
 function announce(t){$('announcement').textContent=t;}
 function hint(t){$('hint').innerHTML='<span>·</span> '+t;}
 function save(){try{localStorage.setItem('yohaku-settings',JSON.stringify(prefs));}catch{}}
@@ -268,11 +273,12 @@ function simulate(dt){
   if(state.phase==='rest'){
     state.autoClock+=dt;const t=state.autoClock-state.restDelay;
     if(t>0){
-      // Three unequal phrases leave space for the room bed and evaporation
-      // tails. Water fades at each edge; the background sound stays unchanged.
-      const cycle=t%86;
-      const phrase=cycle<8?[0,8,.8]:cycle>=31&&cycle<36?[31,5,.4]:cycle>=62&&cycle<74?[62,12,1]:null;
-      const pulse=phrase?phrase[2]*Math.sin((cycle-phrase[0])/phrase[1]*Math.PI)**2:0;
+      // One gentle pour per 48-second window. Varying its offset and length
+      // leaves at least 30 seconds without new water between pours.
+      const windowIndex=Math.floor(t/48),local=t%48;
+      const offset=7+3*waterDrift(windowIndex*29),length=9+3*waterDrift(windowIndex*37+51);
+      const age=(local-offset)/length;
+      const pulse=age>0&&age<1?Math.sin(age*Math.PI)**2*(.88+.12*waterDrift(t)):0;
       const x=745+Math.sin(t*.08)*60,y=370+Math.sin(t*.055)*22;
       const hot=nearest(x,y).ts>150?1:.25,rate=pulse*2.1*hot;
       addWater(x,y,rate*dt,false);state.stream=rate*2;state.pourX=x;state.pourY=y;
