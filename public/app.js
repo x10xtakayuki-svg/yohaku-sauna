@@ -64,7 +64,7 @@ stones.forEach(s=>s.sprite=makeStone(s));
 // A quiet synthesized soundscape: steam beds, granular bubbles, impact,
 // trickling water, and restrained room reflections. No audio file is looped.
 class Soundscape{
-  constructor(){this.ctx=null;this.steam=[];this.lastBubble=0;}
+  constructor(){this.ctx=null;this.steam=[];this.lastBubble=0;this.waterLevel=0;}
   async init(){
     if(this.ctx){await this.ctx.resume();return;}
     const Audio=window.AudioContext||window.webkitAudioContext;
@@ -83,14 +83,14 @@ class Soundscape{
       const n=c.createBufferSource();n.buffer=this.noise;n.loop=true;
       const f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=650+i*320;f.Q.value=.45;
       const gain=c.createGain();gain.gain.value=0;const pan=c.createStereoPanner();pan.pan.value=(i-2.5)*.12;
-      n.connect(f);f.connect(gain);gain.connect(pan);pan.connect(this.lowpass);pan.connect(this.room);n.start(0,i*.63);this.steam.push({gain,f});
+      n.connect(f);f.connect(gain);gain.connect(pan);pan.connect(this.lowpass);pan.connect(this.room);n.start(0,i*.63);this.steam.push({gain,f,level:0});
     }
     const roomNoise=c.createBufferSource();roomNoise.buffer=this.noise;roomNoise.loop=true;
     const filter=c.createBiquadFilter();filter.type='lowpass';filter.frequency.value=180;
     const gain=c.createGain();gain.gain.value=.018;this.ambient=gain;roomNoise.connect(filter);filter.connect(gain);gain.connect(this.lowpass);roomNoise.start();
     this.volume();
   }
-  volume(){if(!this.ctx)return;const t=this.ctx.currentTime,quiet=state.experience==='meditation';this.master.gain.setTargetAtTime(state.playing?prefs.volume/100*(quiet?.62:.72)*state.sessionGain:0,t,state.playing?.4:.3);this.lowpass.frequency.setTargetAtTime(quiet?lerp(3600,2200,prefs.distance/100):lerp(5600,2800,prefs.distance/100),t,.8);this.ambient?.gain.setTargetAtTime(quiet?.014:.025,t,1);}
+  volume(){if(!this.ctx)return;const t=this.ctx.currentTime,quiet=state.experience==='meditation';this.master.gain.setTargetAtTime(state.playing?prefs.volume/100*(quiet?.62:.72)*state.sessionGain:0,t,state.playing?.4:.3);this.lowpass.frequency.setTargetAtTime(quiet?lerp(3600,2200,prefs.distance/100):lerp(5600,2800,prefs.distance/100),t,.8);const space=spaciousAuto()&&autoCycle.phase==='space';this.ambient?.gain.setTargetAtTime((quiet?.014:.025)*(space?1+.025*waterDrift(state.simTime*.4):1),t,2.5);}
   burst(kind,amount=1,x=740){
     if(!this.ctx||!state.playing)return;const c=this.ctx,t=c.currentTime;
     const source=c.createBufferSource();source.buffer=this.noise;const filter=c.createBiquadFilter();filter.type='bandpass';
@@ -108,8 +108,21 @@ class Soundscape{
   }
   update(dt){
     if(!this.ctx)return;
+    if(!state.playing){this.steam.forEach(voice=>voice.gain.gain.setTargetAtTime(0,this.ctx.currentTime,.2));return;}
     const energy=new Array(6).fill(0);stones.forEach((s,i)=>energy[i%6]+=s.evap);
-    this.steam.forEach((voice,i)=>{const amp=Math.sqrt(energy[i])* .065*(.9+.1*Math.sin(state.simTime*.7+i));voice.gain.gain.setTargetAtTime(state.playing?Math.min(.22,amp)*(state.experience==='meditation'?.78:1):0,this.ctx.currentTime,state.experience==='meditation'?.28:.13);});
+    const spacious=spaciousAuto();this.waterLevel=0;
+    this.steam.forEach((voice,i)=>{
+      const amp=Math.min(.22,Math.sqrt(energy[i])*.065*(.9+.1*Math.sin(state.simTime*.7+i)));
+      // A falling water bed releases over several seconds. Keep the room bed
+      // on its own gain so the ending of a pour never fades the whole sauna.
+      const release=3.8+.5*waterDrift(state.simTime*.3+i*19);
+      voice.level=spacious?lerp(voice.level,amp,1-Math.exp(-dt/(amp>voice.level?.35:release))):amp;
+      if(voice.level<.00001&&amp<.00001)voice.level=0;
+      this.waterLevel=Math.max(this.waterLevel,voice.level);
+      voice.gain.gain.setTargetAtTime(state.playing?voice.level*(state.experience==='meditation'?.78:1):0,this.ctx.currentTime,spacious?.25:state.experience==='meditation'?.28:.13);
+      const brightness=spacious?lerp(.65,1,clamp(voice.level/.1,0,1)):1;
+      voice.f.frequency.setTargetAtTime((650+i*320)*brightness,this.ctx.currentTime,1.8);
+    });
     const total=stones.reduce((n,s)=>n+s.evap,0);
     if(state.playing&&total>.005&&Math.random()<Math.min(.6,total*dt*(state.experience==='meditation'?.4:1.4))){const s=stones[Math.floor(Math.random()*stones.length)];this.burst('bubble',Math.min(.7,total*.1),s.x);}
   }
@@ -120,6 +133,35 @@ const smoothstep=t=>{t=clamp(t,0,1);return t*t*(3-2*t);};
 // This shapes only water timing and flow; the low room bed is untouched.
 function waterDrift(t){
   return (Math.sin(t*Math.PI/80+.4)+Math.SQRT1_2*Math.sin(t*Math.PI/40+1.7)+.5*Math.sin(t*Math.PI/20+3.1)+Math.sqrt(.125)*Math.sin(t*Math.PI/10+.8))/(1+Math.SQRT1_2+.5+Math.sqrt(.125));
+}
+const autoCycle={phase:'tail',clock:0,wait:6,turn:0,quietFor:0,startedAt:0};
+function spaciousAuto(){return state.experience==='free'&&state.mode==='auto'&&['thread','wave'].includes(state.pattern);}
+function resetAutoCycle(){Object.assign(autoCycle,{phase:'tail',clock:0,wait:6,turn:0,quietFor:0,startedAt:0});}
+function spaciousWater(dt,t){
+  const wave=state.pattern==='wave';autoCycle.clock+=dt;
+  if(autoCycle.phase==='tail'){
+    const evaporating=stones.reduce((sum,s)=>sum+s.evap,0);
+    autoCycle.quietFor=sound.waterLevel===0&&evaporating<.000001&&delayed.length===0?autoCycle.quietFor+dt:0;
+    if(autoCycle.quietFor>=2){
+      autoCycle.phase='space';autoCycle.clock=0;
+      const drift=waterDrift(autoCycle.turn*31+13);
+      autoCycle.wait=autoCycle.turn===0?6:wave?Math.max(28+8*drift,60-(t-autoCycle.startedAt)):30+8*drift;
+    }
+    return;
+  }
+  if(autoCycle.phase==='space'){
+    if(autoCycle.clock<autoCycle.wait)return;
+    autoCycle.phase='pour';autoCycle.clock=0;autoCycle.turn++;autoCycle.startedAt=t;
+  }
+  const span=(wave?4:10)+(wave?1:2)*waterDrift(autoCycle.turn*29);
+  const progress=autoCycle.clock/span;
+  if(progress>=1){autoCycle.phase='tail';autoCycle.clock=0;autoCycle.quietFor=0;return;}
+  // Ease in, then spend most of the pour gradually closing the water flow.
+  const envelope=smoothstep(progress/.25)*(1-smoothstep((progress-.35)/.65));
+  const x=wave?746+Math.sin(t*.45)*85:730+Math.sin(t*.12)*70;
+  const y=wave?390+Math.sin(t*.3)*20:400;
+  const hot=nearest(x,y).ts>150?1:.3,rate=envelope*(wave?26:2.8)*hot*(.94+.06*waterDrift(t));
+  addWater(x,y,rate*dt,false);state.stream=wave?rate:rate*2.5;state.pourX=x;state.pourY=y;
 }
 function announce(t){$('announcement').textContent=t;}
 function hint(t){$('hint').innerHTML='<span>·</span> '+t;}
@@ -204,7 +246,7 @@ function stopPour(){
   }
 }
 function setMode(mode){
-  stopPour();state.mode=mode;state.autoClock=0;state.nextDrop=4.5;document.body.classList.toggle('auto-ambience',mode==='auto');
+  stopPour();state.mode=mode;state.autoClock=0;state.nextDrop=4.5;resetAutoCycle();document.body.classList.toggle('auto-ambience',mode==='auto');
   for(const [id,m] of [['manual','manual'],['auto','auto']]){$(id).classList.toggle('selected',mode===m);$(id).setAttribute('aria-pressed',String(mode===m));}
   $('manualPanel').hidden=mode!=='manual';$('autoPanel').hidden=mode!=='auto';
   if(mode==='auto'){ladle.targetX=487;ladle.targetY=563;hint('何もせず、音にまかせて。');}else hint('バケツで水を汲んで、石にゆっくり注ぐ。');updateWater();
@@ -235,7 +277,7 @@ $('finishEarly').onclick=beginSettling;
 $('anotherPour').onclick=()=>{if(state.ended)return;if(!state.playing)togglePause();state.phase='ritual';state.ritualPoured=0;state.ritualWait=null;state.tailTime=0;state.water=0;state.cueTime=0;$('restCue').hidden=true;closeRestPanel();setMode('manual');sessionUI();hint('もう一杯、好きなところへ。');$('fill').focus?.({preventScroll:true});};
 $('peekTime').onclick=()=>{const visible=$('restTime').hidden;$('restTime').hidden=!visible;$('peekTime').setAttribute('aria-expanded',String(visible));$('peekTime').textContent=visible?'時間を閉じる':'残り時間を見る';updateTimer();};
 $('manual').onclick=()=>setMode('manual');$('auto').onclick=()=>setMode('auto');
-document.querySelectorAll('[data-pattern]').forEach(b=>b.onclick=()=>{state.pattern=b.dataset.pattern;state.autoClock=0;state.nextDrop=4.5;document.querySelectorAll('[data-pattern]').forEach(v=>{v.classList.toggle('selected',v===b);v.setAttribute('aria-pressed',String(v===b));});announce(b.firstChild.textContent+'を選びました');});
+document.querySelectorAll('[data-pattern]').forEach(b=>b.onclick=()=>{state.pattern=b.dataset.pattern;state.autoClock=0;state.nextDrop=4.5;resetAutoCycle();document.querySelectorAll('[data-pattern]').forEach(v=>{v.classList.toggle('selected',v===b);v.setAttribute('aria-pressed',String(v===b));});announce(b.firstChild.textContent+'を選びました');});
 $('focus').onclick=()=>setFocus(!state.focus);$('restore').onclick=()=>setFocus(false);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){setFocus(false);closeRestPanel();}});
 $('settings').onclick=()=>{stopPour();syncDuration();$('settingsDialog').showModal();};$('help').onclick=()=>{stopPour();$('helpDialog').showModal();};
@@ -294,15 +336,7 @@ function simulate(dt){
       // both a metronome and the rapid clusters of independent random gaps.
       state.nextDrop=t+14+6*waterDrift(t*.65+19);
     }
-    if(state.pattern==='thread'){
-      const cycle=(t%17)/17;const intensity=cycle<.7?Math.pow(Math.sin(cycle/.7*Math.PI),.7):0;
-      const x=730+Math.sin(t*.16)*95;const hot=nearest(x,400).ts>150?1:.25;addWater(x,400,intensity*hot*2.8*dt,false);state.stream=intensity*7;state.pourX=x;state.pourY=400;
-    }
-    if(state.pattern==='wave'){
-      const cycle=t%60;const rate=cycle<3?Math.sin(cycle/3*Math.PI)*55:cycle<44?.5+Math.sin(t*.3)*.25:.08;
-      const x=640+Math.random()*220;addWater(x,370+Math.random()*80,rate*dt,cycle<3);state.stream=cycle<3?rate:0;state.pourX=x;state.pourY=400;
-      if(cycle>3&&Math.random()<dt*.3)sound.burst('drop',.25,x);
-    }
+    if(spaciousAuto())spaciousWater(dt,t);
   }
   for(let i=delayed.length-1;i>=0;i--){delayed[i].wait-=dt;if(delayed[i].wait<=0){const d=delayed.splice(i,1)[0];d.stone.water+=d.amount;d.stone.light=Math.min(1,d.stone.light+d.amount*.25);sound.burst('drop',.2,d.stone.x);}}
   for(let i=0;i<stones.length;i++){
@@ -493,5 +527,5 @@ requestAnimationFrame(render);
 let lastTick=performance.now();
 setInterval(()=>{const now=performance.now(),delta=Math.max(0,(now-lastTick)/1000);lastTick=now;const step=Math.min(.2,delta);if(state.playing&&delta>step){const missed=delta-step;state.audibleTime+=missed;if(state.phase==='free'||state.phase==='rest')state.elapsed+=missed;if(state.phase==='settling')state.tailTime+=missed;if(state.ritualWait!==null)state.ritualWait-=missed;if(state.mode==='auto')state.autoClock+=missed;}simulate(step);},50);
 // A small read-only diagnostic surface for checking physical invariants.
-window.yohaku={snapshot:()=>({started:state.started,playing:state.playing,mode:state.mode,pattern:state.pattern,experience:state.experience,phase:state.phase,gain:state.sessionGain,stream:state.stream,nextDrop:state.nextDrop,tailTime:state.tailTime,water:state.water,elapsed:state.elapsed,pouring:state.pouring,secretFound:state.secretFound,lighting:{dim:state.autoDim,activeSpots:stones.filter(s=>s.light>.01).length},audioState:sound.ctx?.state||'not-started',stones:stones.map(s=>({x:s.x,y:s.y,lucky:s.lucky,surface:s.ts,core:s.tc,water:s.water,evaporation:s.evap,light:s.light})),particles:particles.length})};
+window.yohaku={snapshot:()=>({started:state.started,playing:state.playing,mode:state.mode,pattern:state.pattern,experience:state.experience,phase:state.phase,gain:state.sessionGain,stream:state.stream,nextDrop:state.nextDrop,autoCycle:{...autoCycle},waterLevel:sound.waterLevel,roomLevel:sound.ambient?.gain.value||0,tailTime:state.tailTime,water:state.water,elapsed:state.elapsed,pouring:state.pouring,secretFound:state.secretFound,lighting:{dim:state.autoDim,activeSpots:stones.filter(s=>s.light>.01).length},audioState:sound.ctx?.state||'not-started',stones:stones.map(s=>({x:s.x,y:s.y,lucky:s.lucky,surface:s.ts,core:s.tc,water:s.water,evaporation:s.evap,light:s.light})),particles:particles.length})};
 })();
