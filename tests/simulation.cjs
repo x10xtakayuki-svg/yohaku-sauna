@@ -37,6 +37,10 @@ const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surfa
  elements.auto.onclick();assert.equal(snapshot().mode,'auto');
  elements.scene.fire('pointerdown',{pointerId:8,clientX:offset+752*scale,clientY:603*scale});assert(elements.announcement.textContent.includes('会議はありません'));assert(!snapshot().pouring);
  let reacted=false;for(let i=0;i<100;i++){advance(.1);reacted||=snapshot().stones.some(s=>s.evaporation>0);}assert(reacted);assert(snapshot().lighting.dim>.95);assert(snapshot().lighting.activeSpots>0);invariant();
+ // Rain drops leave 8–20 seconds between events, with slowly changing gaps.
+ patterns[0].onclick();const dropTimes=[];let scheduled=snapshot().nextDrop;
+ for(let i=0;i<1200;i++){advance(.1);const next=snapshot().nextDrop;if(next!==scheduled){dropTimes.push(snapshot().elapsed);scheduled=next;}}
+ const gaps=dropTimes.slice(1).map((t,i)=>t-dropTimes[i]);assert(gaps.length>=5);assert(gaps.every(g=>g>=7.9&&g<=20.2));assert(Math.max(...gaps)-Math.min(...gaps)>.5);invariant();
  patterns[1].onclick();advance(45);invariant();
  patterns[2].onclick();advance(1.5);assert(snapshot().stones.reduce((a,s)=>a+s.evaporation,0)>1);advance(60);assert(snapshot().stones.reduce((a,s)=>a+s.evaporation,0)>1);invariant();
  elements.pause.onclick();const elapsed=snapshot().elapsed;advance(3);assert.equal(snapshot().elapsed,elapsed);elements.pause.onclick();
