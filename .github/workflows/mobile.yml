@@ -1,0 +1,26 @@
+name: Check mobile background audio
+on:
+  push:
+    paths: ['mobile/**', 'public/**', 'tests/**', '.github/workflows/mobile.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          node --check public/app.js
+          node tests/simulation.cjs
+          cmake -S mobile/core -B build/core -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/core --parallel 2
+          build/core/core_tests build/yohaku-native-preview.wav
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-audio-preview
+          path: build/yohaku-native-preview.wav
+          retention-days: 14
