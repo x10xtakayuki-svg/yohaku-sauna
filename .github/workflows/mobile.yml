@@ -24,3 +24,16 @@ jobs:
           name: native-audio-preview
           path: build/yohaku-native-preview.wav
           retention-days: 14
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: |
+          node mobile/scripts/bundle.mjs
+          xcodebuild -project mobile/ios/Yohaku.xcodeproj -scheme Yohaku -sdk iphonesimulator -configuration Debug -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO build
+          ditto -c -k --keepParent build/ios/Build/Products/Debug-iphonesimulator/Yohaku.app build/Yohaku-iOS-Simulator.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iOS-simulator-not-installable-on-iPhone
+          path: build/Yohaku-iOS-Simulator.zip
+          retention-days: 14

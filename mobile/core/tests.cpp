@@ -41,7 +41,7 @@ int main(int argc,char** argv){
             if(s.stage==2&&previous!=2){if(pours>0){longestSpace=std::max(longestSpace,s.elapsed-spaceStart);assert(s.elapsed-spaceStart>=19);if(pattern==2)assert(s.elapsed-lastPour>=59);}lastPour=s.elapsed;pours++;}
             previous=s.stage;
         }
-        assert(pours>=2&&longestSpace>=20&&e.snapshot().playing);
+        std::cerr<<"pattern="<<pattern<<" pours="<<pours<<" longestSpace="<<longestSpace<<" stage="<<e.snapshot().stage<<" level="<<e.snapshot().waterLevel<<" playing="<<e.snapshot().playing<<"\n";assert(pours>=2&&longestSpace>=20&&e.snapshot().playing);
         e.enqueue({Action::Finish});run(e,6);assert(e.snapshot().gain>.9);run(e,15);assert(e.snapshot().phase==3&&!e.snapshot().playing);
     }
     SaunaEngine timer;timer.enqueue({Action::Duration,5});timer.enqueue({Action::Start,1,0});run(timer,301);assert(timer.snapshot().phase==3&&!timer.snapshot().playing);
