@@ -16,6 +16,7 @@ jobs:
       - run: |
           node --check public/app.js
           node tests/simulation.cjs
+          node tests/native-bridge.cjs
           cmake -S mobile/core -B build/core -DCMAKE_BUILD_TYPE=Release
           cmake --build build/core --parallel 2
           build/core/core_tests build/yohaku-native-preview.wav
@@ -33,6 +34,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'

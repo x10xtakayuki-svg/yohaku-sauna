@@ -283,7 +283,7 @@ window.addEventListener('yohaku-native-state',event=>{
   if(!nativeAudio)return;const s=event.detail;
   if(!s||!['elapsed','gain','water','stream','pourX','pourY','tailTime'].every(k=>Number.isFinite(s[k]))||s.version!==1||!['manual','auto'].includes(s.mode)||!['idle','free','settling','finished'].includes(s.phase)||!Array.isArray(s.stones)||s.stones.length!==stones.length)return;
   if(nativeLifecycle==='stopping'){if(!s.started)nativeLifecycle='idle';else return;}
-  if(nativeLifecycle==='starting'&&!s.started)return;
+  if(nativeLifecycle==='starting'&&(!s.started||s.phase==='finished'))return;
   if(!s.started){if(state.started){state.started=false;state.playing=false;state.phase='idle';state.ended=false;$('welcome').hidden=false;$('ending').hidden=true;document.body.classList.remove('playing');sessionUI();}return;}
   const wasEnded=state.ended;nativeLifecycle='active';
   for(const key of ['started','playing','pouring','mode','pattern','phase','elapsed','water','stream','pourX','pourY','tailTime'])state[key]=s[key];

@@ -30,6 +30,7 @@ public final class SaunaService extends Service {
     private void send(int action,double a,double b,double c){if(handle!=0&&!NativeAudio.command(handle,action,a,b,c))error("操作が混み合っています。少し待ってお試しください。");synchronized(signal){signal.notifyAll();}}
     private void play(boolean value){
         if(value){
+            try{JSONObject state=new JSONObject(lastSnapshot);if(!state.optBoolean("started")||"finished".equals(state.optString("phase")))return;}catch(JSONException ignored){return;}
             if(manager.requestAudioFocus(focus)!=AudioManager.AUDIOFOCUS_REQUEST_GRANTED){error("ほかの音声が使用中です。もう一度お試しください。");return;}
             startForeground(NOTIFICATION,notification());
         }
@@ -37,6 +38,7 @@ public final class SaunaService extends Service {
     }
     public void command(JSONObject m){
         String type=m.optString("type");
+        if(handle==0||track==null){if(!"prepare".equals(type))lastError="音の準備ができませんでした。アプリを開き直してください。";return;}
         switch(type){
             case "prepare":break;
             case "start":
@@ -79,7 +81,8 @@ public final class SaunaService extends Service {
         focus=new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(attributes).setOnAudioFocusChangeListener(change->{if(change<0)play(false);}).build();
         handle=NativeAudio.create();if(handle==0){error("音の準備ができませんでした。");stopSelf();return;}
         int min=AudioTrack.getMinBufferSize(48000,AudioFormat.CHANNEL_OUT_STEREO,AudioFormat.ENCODING_PCM_FLOAT);
-        track=new AudioTrack.Builder().setAudioAttributes(attributes).setAudioFormat(new AudioFormat.Builder().setSampleRate(48000).setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).setEncoding(AudioFormat.ENCODING_PCM_FLOAT).build()).setBufferSizeInBytes(Math.max(min,480*2*4*4)).setTransferMode(AudioTrack.MODE_STREAM).build();
+        try{track=new AudioTrack.Builder().setAudioAttributes(attributes).setAudioFormat(new AudioFormat.Builder().setSampleRate(48000).setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).setEncoding(AudioFormat.ENCODING_PCM_FLOAT).build()).setBufferSizeInBytes(Math.max(min,480*2*4*4)).setTransferMode(AudioTrack.MODE_STREAM).build();if(track.getState()!=AudioTrack.STATE_INITIALIZED)throw new IllegalStateException();}
+        catch(RuntimeException failure){error("この端末で音を準備できませんでした。");stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return;}
         audioThread=new Thread(()->{
             Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);float[] output=new float[960];int batch=0;
             while(running){
@@ -99,7 +102,8 @@ public final class SaunaService extends Service {
                 }
             }
         },"YohakuAudio");audioThread.start();updateSession();
-        registerReceiver(noisy,new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY));
+        IntentFilter noisyFilter=new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+        if(Build.VERSION.SDK_INT>=33)registerReceiver(noisy,noisyFilter,Context.RECEIVER_NOT_EXPORTED);else registerReceiver(noisy,noisyFilter);
     }
     private final BroadcastReceiver noisy=new BroadcastReceiver(){@Override public void onReceive(Context context,Intent intent){play(false);}};
     @Override public int onStartCommand(Intent intent,int flags,int startId){startForeground(NOTIFICATION,notification());return START_NOT_STICKY;}
