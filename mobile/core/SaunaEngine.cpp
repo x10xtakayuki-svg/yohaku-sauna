@@ -110,8 +110,9 @@ void SaunaEngine::step(double dt) noexcept {
         const double potential=std::max(0.0,s.surface-98)*.011*s.rough,available=s.water*(1-std::exp(-dt/(s.rough*.65)));
         const double evaporation=std::min({available,potential*dt,std::max(0.0,(s.surface-95)*s.capacity)/2450});
         s.water-=evaporation;s.surface-=evaporation*2450/s.capacity;s.evap=evaporation/dt;s.wet=mix(s.wet,std::min(1.0,s.water/2+s.evap*.12),std::min(1.0,dt*5));
-        // Runoff is transferred conservatively; the receiving stone owns its tail.
-        if(s.water>4){const double runoff=std::min(s.water-4,12*dt);for(int j=i+1;j<24;j++)if(stones_[j].y>s.y+18&&std::abs(stones_[j].x-s.x)<75){s.water-=runoff;stones_[j].water+=runoff;break;}}
+        // Water reaches a lower stone, or drains out of the visible heater.
+        // Keeping runoff in the bottom row would create a minutes-long puddle.
+        if(s.water>4){const double runoff=std::min(s.water-4,12*dt);s.water-=runoff;for(int j=i+1;j<24;j++)if(stones_[j].y>s.y+18&&std::abs(stones_[j].x-s.x)<75){stones_[j].water+=runoff;break;}}
         energy[i%6]+=s.evap;total+=s.evap;
     }
     waterLevel_=0;const bool spacious=mode_==1&&pattern_!=0;

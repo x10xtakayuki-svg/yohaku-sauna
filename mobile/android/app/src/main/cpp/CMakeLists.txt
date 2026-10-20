@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22)
+project(yohaku LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+add_library(yohaku SHARED bridge.cpp ../../../../../core/SaunaEngine.cpp)
+target_compile_options(yohaku PRIVATE -Wall -Wextra)

@@ -109,6 +109,7 @@ static NSDictionary *StateJSON(const yohaku::Snapshot& s){
     self.audio.onError=^(NSString *message){[weak emit:@"yohaku-native-error" data:@{@"message":message}];};
     [self.web loadFileURL:[self.webRoot URLByAppendingPathComponent:@"index.html"] allowingReadAccessToURL:self.webRoot];
 }
+- (void)viewSafeAreaInsetsDidChange {[super viewSafeAreaInsetsDidChange];self.web.frame=self.view.safeAreaLayoutGuide.layoutFrame;}
 - (void)emit:(NSString *)event data:(NSDictionary *)data {
     NSData *json=[NSJSONSerialization dataWithJSONObject:data options:0 error:nil];NSString *payload=[[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
     [self.web evaluateJavaScript:[NSString stringWithFormat:@"window.dispatchEvent(new CustomEvent('%@',{detail:%@}));",event,payload] completionHandler:nil];
