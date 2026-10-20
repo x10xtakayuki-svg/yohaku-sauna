@@ -46,6 +46,12 @@ int main(int argc,char** argv){
     }
     SaunaEngine timer;timer.enqueue({Action::Duration,5});timer.enqueue({Action::Start,1,0});run(timer,301);assert(timer.snapshot().phase==3&&!timer.snapshot().playing);
     SaunaEngine bounded;int accepted=0;for(int i=0;i<200;i++)accepted+=bounded.enqueue({Action::Settings,30,60,35});assert(accepted==127);run(bounded,.1);assert(bounded.enqueue({Action::Start,1,0}));
+    SaunaEngine separated,interleaved;separated.enqueue({Action::Start,1,0});interleaved.enqueue({Action::Start,1,0});
+    for(int block=0;block<1000;block++){
+        float left[480],right[480],packed[962];packed[0]=packed[961]=123;
+        separated.render(left,right,480);interleaved.render(packed+1,packed+2,480,2);
+        assert(packed[0]==123&&packed[961]==123);for(int i=0;i<480;i++){assert(left[i]==packed[1+i*2]);assert(right[i]==packed[2+i*2]);}
+    }
     if(argc>1)preview(argv[1]);
     std::cout<<"PASS: sample-clock-only background progression; full tails and quiet gaps; timer; pause/finish; self pour; finite PCM; bounded command queue\n";
 }

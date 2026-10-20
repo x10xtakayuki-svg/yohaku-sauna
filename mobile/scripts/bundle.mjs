@@ -7,7 +7,7 @@ for(const target of ['ios/Web','android/app/src/main/assets/Web']){
   let html=await readFile(path.join(root,'../public/index.html'),'utf8');
   html=html.replace('<script src="app.js','<script src="native-bridge.js"></script>\n<script src="app.js');
   await writeFile(path.join(dest,'index.html'),html);
-  const css=(await readFile(path.join(root,'../public/style.css'),'utf8')).replace(/@import\s+url\([^;]+;/g,'');
+  const css=(await readFile(path.join(root,'../public/style.css'),'utf8')).replace(/@import\s+url\((?:"[^"]*"|'[^']*'|[^)]*)\)\s*;/g,'');
   await writeFile(path.join(dest,'style.css'),css);
   await copyFile(path.join(root,'../public/app.js'),path.join(dest,'app.js'));
   await copyFile(path.join(root,'shared/native-bridge.js'),path.join(dest,'native-bridge.js'));

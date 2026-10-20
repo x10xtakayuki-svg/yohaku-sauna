@@ -49,8 +49,10 @@ void SaunaEngine::apply(Command c) noexcept {
     switch(c.action){
     case Action::Start:
         mode_=c.a>=.5;pattern_=int(clamp(c.b,0,2));started_=playing_=true;pouring_=false;phase_=1;
-        audible_=elapsed_=tail_=ladle_=stream_=gain_=0;resetAuto();resetStones();
-        for(auto& v:voices_)v.level=v.target=0;for(auto& b:bursts_)b.age=-1;break;
+        audible_=elapsed_=tail_=ladle_=stream_=gain_=currentGain_=0;resetAuto();resetStones();
+        for(auto& v:voices_)v.level=v.target=v.renderLevel=0;
+        for(auto& b:bursts_)b.age=-1;
+        std::fill(echoL_.begin(),echoL_.end(),0);std::fill(echoR_.begin(),echoR_.end(),0);break;
     case Action::Playing:if(started_&&phase_!=3){playing_=c.a>=.5;pouring_=false;}break;
     case Action::Mode:if(phase_==1){mode_=c.a>=.5;pouring_=false;resetAuto();}break;
     case Action::Pattern:pattern_=int(clamp(c.a,0,2));resetAuto();break;
@@ -67,7 +69,8 @@ int SaunaEngine::nearest(double x,double y) const noexcept {
     int best=0;double distance=1e12;for(int i=0;i<24;i++){const double d=std::hypot(x-stones_[i].x,y-stones_[i].y);if(d<distance){best=i;distance=d;}}return best;
 }
 void SaunaEngine::addWater(double x,double y,double amount) noexcept {
-    if(amount<=0)return;auto& s=stones_[nearest(x,y)];s.water+=amount;s.light=std::min(1.0,s.light+amount*.45);
+    if(amount<=0)return;
+    auto& s=stones_[nearest(x,y)];s.water+=amount;s.light=std::min(1.0,s.light+amount*.45);
 }
 void SaunaEngine::burst(int kind,double amount,double x) noexcept {
     auto& b=bursts_[burstIndex_++%bursts_.size()];b.age=0;b.pan=clamp((x-650)/600,-.5,.5)*(1-distance_*.625);
@@ -110,6 +113,7 @@ void SaunaEngine::step(double dt) noexcept {
         const double potential=std::max(0.0,s.surface-98)*.011*s.rough,available=s.water*(1-std::exp(-dt/(s.rough*.65)));
         const double evaporation=std::min({available,potential*dt,std::max(0.0,(s.surface-95)*s.capacity)/2450});
         s.water-=evaporation;s.surface-=evaporation*2450/s.capacity;s.evap=evaporation/dt;s.wet=mix(s.wet,std::min(1.0,s.water/2+s.evap*.12),std::min(1.0,dt*5));
+        if(s.water<1e-12)s.water=0;
         // Water reaches a lower stone, or drains out of the visible heater.
         // Keeping runoff in the bottom row would create a minutes-long puddle.
         if(s.water>4){const double runoff=std::min(s.water-4,12*dt);s.water-=runoff;for(int j=i+1;j<24;j++)if(stones_[j].y>s.y+18&&std::abs(stones_[j].x-s.x)<75){stones_[j].water+=runoff;break;}}
@@ -119,7 +123,8 @@ void SaunaEngine::step(double dt) noexcept {
     for(int i=0;i<6;i++){
         auto& v=voices_[i];const double amp=std::min(.22,std::sqrt(energy[i])*.065*(.9+.1*std::sin(time_*.7+i)));
         const double release=3.8+.5*drift(time_*.3+i*19);v.level=spacious?mix(v.level,amp,1-std::exp(-dt/(amp>v.level?.35:release))):amp;
-        if(v.level<.00001&&amp<.00001)v.level=0;waterLevel_=std::max(waterLevel_,v.level);v.target=v.level;
+        if(v.level<.00001&&amp<.00001)v.level=0;
+        waterLevel_=std::max(waterLevel_,v.level);v.target=v.level;
         const double brightness=spacious?mix(.65,1,clamp(v.level/.1,0,1)):1;v.filter.set((650+i*320)*brightness,.45,sampleRate_,true);
     }
     roomLevel_=.025*((spacious&&stage_==1)?1+.025*drift(time_*.4):1);
@@ -149,7 +154,8 @@ void SaunaEngine::render(float* left,float* right,int frames,int stride) noexcep
             l+=signal*std::sqrt((1-b.pan)*.5);rr+=signal*std::sqrt((1+b.pan)*.5);b.age+=dt;if(b.age>=b.length)b.age=-1;
         }
         const double delayedL=echoL_[echoIndexL_],delayedR=echoR_[echoIndexR_];echoL_[echoIndexL_]=float(l+delayedR*.2);echoR_[echoIndexR_]=float(rr+delayedL*.2);
-        if(++echoIndexL_==echoL_.size())echoIndexL_=0;if(++echoIndexR_==echoR_.size())echoIndexR_=0;
+        if(++echoIndexL_==echoL_.size())echoIndexL_=0;
+        if(++echoIndexR_==echoR_.size())echoIndexR_=0;
         const double outL=output_[0].run(room+l+delayedL*.24)*currentGain_,outR=output_[1].run(room+rr+delayedR*.24)*currentGain_;
         left[frame*stride]=float(std::tanh(outL));right[frame*stride]=float(std::tanh(outR));if(++noiseIndex_==noise_.size())noiseIndex_=0;
     }

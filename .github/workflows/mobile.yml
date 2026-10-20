@@ -49,7 +49,7 @@ jobs:
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
   ios:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v6
       - run: |

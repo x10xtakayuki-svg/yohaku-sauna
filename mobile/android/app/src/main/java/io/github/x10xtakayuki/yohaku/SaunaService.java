@@ -22,7 +22,7 @@ public final class SaunaService extends Service {
     private AudioManager manager;
     private AudioFocusRequest focus;
     private MediaSession session;
-    private boolean finishing=false;
+    private volatile boolean finishing=false,starting=false;
 
     private void error(String message){lastError=message;requestedPlaying=false;}
     public String takeError(){String error=lastError;lastError=null;return error;}
@@ -43,7 +43,7 @@ public final class SaunaService extends Service {
             case "prepare":break;
             case "start":
                 if(manager.requestAudioFocus(focus)!=AudioManager.AUDIOFOCUS_REQUEST_GRANTED){error("ほかの音声が使用中です。もう一度お試しください。");return;}
-                finishing=false;requestedPlaying=true;startForeground(NOTIFICATION,notification());send(0,"auto".equals(m.optString("mode"))?1:0,pattern(m.optString("pattern")),0);break;
+                starting=true;finishing=false;requestedPlaying=true;startForeground(NOTIFICATION,notification());send(0,"auto".equals(m.optString("mode"))?1:0,pattern(m.optString("pattern")),0);break;
             case "playing":play(m.optBoolean("value"));break;
             case "mode":send(2,"auto".equals(m.optString("value"))?1:0,0,0);break;
             case "pattern":send(3,pattern(m.optString("value")),0,0);break;
@@ -84,7 +84,7 @@ public final class SaunaService extends Service {
         try{track=new AudioTrack.Builder().setAudioAttributes(attributes).setAudioFormat(new AudioFormat.Builder().setSampleRate(48000).setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).setEncoding(AudioFormat.ENCODING_PCM_FLOAT).build()).setBufferSizeInBytes(Math.max(min,480*2*4*4)).setTransferMode(AudioTrack.MODE_STREAM).build();if(track.getState()!=AudioTrack.STATE_INITIALIZED)throw new IllegalStateException();}
         catch(RuntimeException failure){error("この端末で音を準備できませんでした。");stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();return;}
         audioThread=new Thread(()->{
-            Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO);float[] output=new float[960];int batch=0;
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);float[] output=new float[960];int batch=0;
             while(running){
                 if(requestedPlaying){
                     if(track.getPlayState()!=AudioTrack.PLAYSTATE_PLAYING)track.play();
@@ -98,7 +98,7 @@ public final class SaunaService extends Service {
                 }
                 if(++batch%10==0||!requestedPlaying){
                     lastSnapshot=NativeAudio.snapshot(handle);
-                    try{JSONObject state=new JSONObject(lastSnapshot);if("finished".equals(state.optString("phase"))&&!finishing){finishing=true;requestedPlaying=false;main.post(()->{manager.abandonAudioFocusRequest(focus);updateSession();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();});}}catch(JSONException ignored){}
+                    try{JSONObject state=new JSONObject(lastSnapshot);if("free".equals(state.optString("phase")))starting=false;if("finished".equals(state.optString("phase"))&&!finishing&&!starting){finishing=true;requestedPlaying=false;main.post(()->{manager.abandonAudioFocusRequest(focus);updateSession();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();});}}catch(JSONException ignored){}
                 }
             }
         },"YohakuAudio");audioThread.start();updateSession();

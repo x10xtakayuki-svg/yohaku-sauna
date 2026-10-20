@@ -19,7 +19,7 @@ static NSDictionary *StateJSON(const yohaku::Snapshot& s){
     AVAudioEngine *_engine;
     AVAudioSourceNode *_source;
     NSTimer *_timer;
-    BOOL _requestedPlaying,_resumeAfterInterruption;
+    BOOL _requestedPlaying,_resumeAfterInterruption,_starting;
 }
 @property(nonatomic,copy) void(^onState)(NSDictionary *state);
 @property(nonatomic,copy) void(^onError)(NSString *message);
@@ -66,7 +66,7 @@ static NSDictionary *StateJSON(const yohaku::Snapshot& s){
     NSString *type=m[@"type"];if(![type isKindOfClass:NSString.class])return;
     auto send=[&](yohaku::Command c){if(!_core->enqueue(c)&&self.onError)self.onError(@"操作が混み合っています。少し待ってお試しください。");};
     if([type isEqual:@"prepare"])return;
-    if([type isEqual:@"start"]){if(![self activate])return;_requestedPlaying=YES;send({yohaku::Action::Start,[m[@"mode"] isEqual:@"auto"]?1.:0.,[m[@"pattern"] isEqual:@"thread"]?1.:[m[@"pattern"] isEqual:@"wave"]?2.:0.});}
+    if([type isEqual:@"start"]){_starting=YES;if(![self activate]){_starting=NO;return;}_requestedPlaying=YES;send({yohaku::Action::Start,[m[@"mode"] isEqual:@"auto"]?1.:0.,[m[@"pattern"] isEqual:@"thread"]?1.:[m[@"pattern"] isEqual:@"wave"]?2.:0.});}
     else if([type isEqual:@"playing"]){BOOL play=[m[@"value"] boolValue];if(play&&![self activate])return;_requestedPlaying=play;send({yohaku::Action::Playing,double(play)});if(!play)[self suspendWhenQuiet];}
     else if([type isEqual:@"settings"])send({yohaku::Action::Settings,[m[@"volume"] doubleValue],[m[@"distance"] doubleValue],[m[@"flow"] doubleValue]});
     else if([type isEqual:@"duration"])send({yohaku::Action::Duration,[m[@"value"] doubleValue]});
@@ -79,11 +79,11 @@ static NSDictionary *StateJSON(const yohaku::Snapshot& s){
     else if([type isEqual:@"stop"]){if(!_engine.running)[self activate];send({yohaku::Action::Stop});_requestedPlaying=NO;[self suspendWhenQuiet];}
 }
 - (void)publish {
-    auto state=_core->snapshot();if(state.phase==3&&_requestedPlaying){_requestedPlaying=NO;[self suspendWhenQuiet];}
+    auto state=_core->snapshot();if(state.phase==1)_starting=NO;if(state.phase==3&&_requestedPlaying&&!_starting){_requestedPlaying=NO;[self suspendWhenQuiet];}
     if(state.started){
-        MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo=@{MPMediaItemPropertyTitle:@"余白 — おうちのサウナ",MPMediaItemPropertyArtist:state.mode?@"静かなオートロウリュ":@"セルフロウリュ",MPNowPlayingInfoPropertyElapsedPlaybackTime:@(state.elapsed),MPNowPlayingInfoPropertyPlaybackRate:@(state.playing?1:0),MPNowPlayingInfoPropertyIsLiveStream:@YES};
+        MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo=@{MPMediaItemPropertyTitle:@"余白 — おうちのサウナ",MPMediaItemPropertyArtist:state.mode?@"静かなオートロウリュ":@"セルフロウリュ",MPNowPlayingInfoPropertyElapsedPlaybackTime:@(state.elapsed),MPNowPlayingInfoPropertyPlaybackRate:@(state.playing&&_requestedPlaying?1:0),MPNowPlayingInfoPropertyIsLiveStream:@YES};
     }else MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo=nil;
-    if(self.onState)self.onState(StateJSON(state));
+    if(self.onState){NSMutableDictionary *json=[StateJSON(state) mutableCopy];json[@"playing"]=@(state.playing&&_requestedPlaying);self.onState(json);}
 }
 - (void)interrupted:(NSNotification *)n {
     if([n.userInfo[AVAudioSessionInterruptionTypeKey] unsignedIntegerValue]==AVAudioSessionInterruptionTypeBegan){_resumeAfterInterruption=_requestedPlaying;[self command:@{@"type":@"playing",@"value":@NO}];}
