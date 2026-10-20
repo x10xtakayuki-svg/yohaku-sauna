@@ -19,63 +19,30 @@
 .auto-ambience .interaction-note{opacity:.65}
 .focus-mode.auto-ambience .room-caption,.focus-mode.auto-ambience .room-tag,.focus-mode.auto-ambience .interaction-note{opacity:0}
 
-/* Evening rest: one clear entrance, a cup if wanted, then room to do nothing. */
+/* Two entrances, with the same quiet room and ending. */
 button{min-height:44px}.icon-button{width:44px;height:44px}.restore{min-height:44px}
-.welcome .primary{margin:24px auto 7px;min-width:260px;min-height:52px}
-.quiet-entry{display:block;margin:0 auto;min-height:46px;font-size:12px;letter-spacing:1.4px;color:#d0d8c3;padding:8px 20px;border-bottom:1px solid #b2c39a26}
-.free-entry{display:block;margin:9px auto 12px;font-size:10px;letter-spacing:1px;color:#a1af96;min-height:44px;padding:8px 16px}
-.welcome-foot{display:block}.welcome h2{margin-top:22px;font-size:30px}.welcome p{margin-bottom:10px}
-.at-entrance .controls,.at-entrance footer,.at-entrance .time,.at-entrance .separator{display:none}
+.entry-choices{display:flex;flex-direction:column;gap:12px;margin:25px auto 22px;width:280px;max-width:100%}
+.entry-mode{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;min-height:76px;border:1px solid #b2c39a45;border-radius:5px;background:#25342270;padding:14px 20px}
+.entry-mode:hover,.entry-mode:focus-visible{background:#35452d;border-color:#b2c39a88}
+.entry-mode strong{font-size:13px;font-weight:400;letter-spacing:2px}.entry-mode span{font-size:9px;letter-spacing:.6px;color:#acbaa0}
+.welcome-foot{display:block;font-size:9px;color:#9ba991}.welcome h2{margin-top:22px;font-size:30px}.welcome p{margin-bottom:10px}
+.at-entrance .controls,.at-entrance footer,.at-entrance .time,.at-entrance .separator,.untimed .time,.untimed .separator{display:none}
 .at-entrance .room-caption,.at-entrance .room-tag,.at-entrance .interaction-note{opacity:0}
-.meditation #sessionTime,.meditation .separator{display:none}
-.meditation footer,.meditation .mode-switch,.meditation .sound-label{display:none}
-.meditation .topbar{height:80px}.meditation .control-top{height:52px;justify-content:flex-end}
-.meditation .range-label,.meditation .water-indicator,.meditation #waterText{display:none}
-.ritual-mode .room{height:clamp(320px,calc(100svh - 310px),620px);min-height:320px}
-.ritual-mode .control-bottom{min-height:70px;justify-content:center}.ritual-mode .action-group{justify-content:center}
-.ritual-actions{display:flex;align-items:center;justify-content:center;gap:15px;padding:0 0 16px}
-.ritual-actions button{min-height:44px;font-size:11px;letter-spacing:.5px;padding:8px 15px;color:#bbc8ac}
-.ritual-actions button:first-child{border:1px solid #8c9d7155;border-radius:4px;background:#35432c55}
-.ritual-actions button:last-child{font-size:10px;color:#98a48f}
-.resting .controls,.session-finished .controls{display:none}
-.resting .room-caption,.resting .room-tag,.resting .interaction-note,.session-finished .room-caption,.session-finished .room-tag,.session-finished .interaction-note{opacity:0;visibility:hidden;transition:opacity 4s ease,visibility 4s}
-.resting .brand,.resting .top-right{opacity:.4;transition:opacity 3s ease}.resting .top-right:hover,.resting .top-right:focus-within{opacity:1}
-.resting .room,.at-entrance .room,.session-finished.meditation .room{height:calc(100svh - 112px);min-height:420px;max-height:820px}
-.resting .room canvas{cursor:default}
-.rest-controls{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;z-index:5;white-space:nowrap}
-.rest-controls button{min-height:44px;min-width:100px;border:1px solid #c1d1a529;border-radius:24px;padding:10px 17px;background:#101b13bf;font-size:10px;letter-spacing:1px;color:#a9b89d;transition:background .3s}
-.rest-controls button:hover,.rest-controls button:focus-visible{background:#243222;color:#d7e4c9}
-.rest-panel{position:absolute;bottom:76px;left:50%;transform:translateX(-50%);width:290px;max-width:calc(100% - 32px);padding:16px;background:#17251cf5;border:1px solid #b4c89c35;border-radius:8px;box-shadow:0 12px 50px #0006;z-index:6}
-.rest-panel p{font-family:'Noto Serif JP',serif;font-size:12px;color:#b9c7ad;letter-spacing:1px;margin:4px 8px 12px}
-.rest-panel button{display:block;width:100%;text-align:left;min-height:44px;padding:10px 9px;color:#c2ceb7;font-size:11px;border-top:1px solid #b2c29715}
-.rest-panel span{display:block;padding:10px 9px;color:#a3b294;font-variant-numeric:tabular-nums;font-size:11px}
-.rest-cue{position:absolute;left:24px;right:24px;bottom:86px;margin:0;text-align:center;font-size:11px;line-height:1.9;letter-spacing:1.4px;color:#becbb0;pointer-events:none;animation:rest-cue 6s ease both}
-@keyframes rest-cue{0%{opacity:0}22%,65%{opacity:.8}100%{opacity:0}}
+.at-entrance .room,.session-finished .room{height:calc(100svh - 112px);min-height:420px;max-height:820px}
+.session-actions{display:flex;align-items:center;gap:20px}.finish-button{font-size:10px;color:#a6b49c;letter-spacing:.5px;padding:8px 10px}
+.session-finished .controls{display:none}.session-finished .room-caption,.session-finished .room-tag,.session-finished .interaction-note{opacity:0;visibility:hidden}
+.session-finished .brand,.session-finished .top-right{opacity:.4}
 .ending{background:#09140dd9;backdrop-filter:blur(2px)}.ending h2{color:#c1ccb3}.ending p{color:#96a68a}
 .ending-actions{display:flex;gap:14px;justify-content:center;margin-top:24px}.ending-actions button{min-height:44px;font-size:10px;color:#a4b497;border:1px solid #a4b98b22;border-radius:24px;padding:10px 17px}
-.guide-setting{display:flex;align-items:center;gap:12px;min-height:44px;font-size:11px;line-height:1.7;color:#bac8ad}.guide-setting input{width:18px;height:18px;accent-color:#abbf97}
 .setting-label>#durationContext{float:none;color:#c6cfbb;font-size:12px}
+.room{transition:height 1.4s ease,min-height 1.4s ease}#endingTitle:focus{outline:none}
 @media(max-width:760px){
-  .meditation .topbar{height:64px}.meditation .brand-mark{font-size:24px}.meditation .top-right{gap:6px}
-  .resting .room,.at-entrance .room,.session-finished.meditation .room{height:calc(100svh - 86px);min-height:390px;max-height:none}
-  .welcome-inner{padding:18px 20px}.welcome .eyebrow{font-size:7px}.welcome h2{font-size:25px;letter-spacing:3px;margin:19px 0 15px}.welcome p{font-size:11px;line-height:2.1}
-  .welcome .primary{margin-top:19px;padding:13px 21px;min-width:245px;font-size:11px;letter-spacing:1.3px}.welcome-foot{font-size:8px}
-  .ritual-mode .room{height:calc(100svh - 274px);min-height:240px;max-height:500px}.ritual-mode .room-caption{top:8%;left:6%}.ritual-mode .room-caption h1{font-size:20px;margin:15px 0 8px}.ritual-mode .room-caption p{font-size:9px}.ritual-mode .room-tag{display:none}
-  .ritual-mode .control-bottom{padding:10px 0;min-height:62px;gap:0}.ritual-mode .interaction-note{bottom:15px;font-size:9px;right:15px;line-height:1.8}
-  .ritual-actions{gap:5px;padding-bottom:8px}.ritual-actions button{padding:8px 11px;font-size:10px}.ritual-actions button:last-child{font-size:9px}
-  .rest-controls{bottom:max(12px,env(safe-area-inset-bottom));gap:10px}.rest-panel{bottom:76px}.rest-cue{font-size:10px;letter-spacing:.8px}
-  .durations{gap:4px}.durations button{padding:9px 8px}
+ .at-entrance .room,.session-finished .room{height:calc(100svh - 104px);min-height:390px;max-height:none}
+ .welcome-inner{padding:18px 20px}.welcome .eyebrow{font-size:7px}.welcome h2{font-size:25px;letter-spacing:3px;margin:19px 0 15px}.welcome p{font-size:11px;line-height:2.1}.welcome-foot{font-size:8px}
+ .session-actions{gap:6px}.finish-button{font-size:9px;padding:8px 6px}.mode-switch button{padding:10px 9px;letter-spacing:.4px;white-space:nowrap}
 }
-@media(prefers-reduced-motion:reduce){.rest-cue{animation:none}.resting .room-caption,.resting .room-tag,.resting .interaction-note{transition:none}}
-
-.room{transition:height 1.4s ease,min-height 1.4s ease}
-#endingTitle:focus{outline:none}
-.session-finished.meditation .brand,.session-finished.meditation .top-right{opacity:.4}
 @media(max-height:520px) and (orientation:landscape){
-  .meditation .topbar{height:60px}
-  .resting .room,.at-entrance .room,.session-finished.meditation .room{height:calc(100svh - 78px);min-height:0}
-  .welcome{overflow:auto;place-items:start center}.welcome-inner{margin:auto;padding:16px 24px}
-  .welcome h2{font-size:23px;margin:12px 0}.welcome p{font-size:10px;line-height:1.8}
-  .welcome .primary{margin-top:12px;min-height:44px;padding:9px 20px}.quiet-entry,.free-entry{min-height:44px;margin-top:0;margin-bottom:0}
-  .welcome-foot{margin-top:8px}.rest-cue{bottom:68px}
+ .at-entrance .room,.session-finished .room{height:calc(100svh - 100px);min-height:0}
+ .welcome{overflow:auto;place-items:start center}.welcome-inner{margin:auto;padding:16px 24px}
+ .welcome h2{font-size:23px;margin:10px 0}.welcome p{font-size:10px;line-height:1.8}.entry-choices{flex-direction:row;width:540px;gap:12px;margin:14px auto}.entry-mode{flex:1;min-height:64px;padding:10px 14px}.welcome-foot{margin-top:8px}
 }

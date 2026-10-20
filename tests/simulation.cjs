@@ -1,5 +1,5 @@
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
-let clock=0,tick,frame,focusedId;
+let clock=0,tick,frame,focusedId,storedPrefs=JSON.stringify({duration:10,restDuration:3,guide:true,volume:45});
 const gradient={addColorStop(){}};
 const context=new Proxy({createLinearGradient:()=>gradient,createRadialGradient:()=>gradient,ellipse(x,y,rx,ry){assert([x,y,rx,ry].every(Number.isFinite));assert(rx>=0&&ry>=0);}},{get:(o,k)=>k in o?o[k]:()=>{},set:(o,k,v)=>(o[k]=v,true)});
 class Element{
@@ -11,20 +11,20 @@ class Element{
 }
 const elements={};for(const m of fs.readFileSync('public/index.html','utf8').matchAll(/id="([^"]+)"/g))elements[m[1]]=new Element(m[1]);
 const patterns=['drops','thread','wave'].map(v=>{let b=new Element(v);b.dataset.pattern=v;return b;});
-const durations=[3,5,10,20,0].map(v=>{let b=new Element();b.dataset.min=String(v);return b;});
+const durations=[5,10,20,0].map(v=>{let b=new Element();b.dataset.min=String(v);return b;});
 const document={getElementById:id=>elements[id],createElement:()=>new Element(),body:new Element(),addEventListener(){},querySelectorAll:s=>s==='[data-pattern]'?patterns:s==='[data-min]'?durations:[]};
 const param=()=>({value:0,setTargetAtTime(v){this.value=v;},setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}});
 const node=()=>({gain:param(),frequency:param(),Q:param(),pan:param(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),connect(){},disconnect(){},start(){},stop(){}});
 class Audio{constructor(){this.sampleRate=8000;this.currentTime=0;this.destination={};this.state='running';}resume(){return Promise.resolve();}createGain(){return node();}createDynamicsCompressor(){return node();}createBiquadFilter(){return node();}createConvolver(){return node();}createStereoPanner(){return node();}createBufferSource(){return node();}createOscillator(){return node();}createBuffer(ch,len){const data=Array.from({length:ch},()=>new Float32Array(Math.ceil(len)));return{getChannelData:i=>data[i]};}}
 const window={AudioContext:Audio,addEventListener(){}};
-const sandbox={document,window,console,localStorage:{getItem(){return null;},setItem(){}},matchMedia:()=>({matches:false}),navigator:{},devicePixelRatio:1,performance:{now:()=>clock},requestAnimationFrame:f=>{frame=f;},setInterval:f=>{tick=f;},ResizeObserver:class{observe(){}}};
+const sandbox={document,window,console,localStorage:{getItem(){return storedPrefs;},setItem(k,v){storedPrefs=v;}},matchMedia:()=>({matches:false}),navigator:{},devicePixelRatio:1,performance:{now:()=>clock},requestAnimationFrame:f=>{frame=f;},setInterval:f=>{tick=f;},ResizeObserver:class{observe(){}}};
 vm.runInNewContext(fs.readFileSync('public/app.js','utf8'),sandbox);
 const snapshot=()=>window.yohaku.snapshot();
 const advance=seconds=>{for(let i=0;i<Math.ceil(seconds/.05);i++){clock+=50;tick();if(i%20===0)frame(clock);}};
 const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surface)&&Number.isFinite(s.core));assert(s.water>=0);assert(s.evaporation>=0);assert(s.surface>90&&s.surface<400);assert(Number.isFinite(s.light)&&s.light>=0&&s.light<=1);});
 (async()=>{
  frame(clock);
- await elements.freeEnter.onclick();assert(snapshot().playing);assert.equal(snapshot().audioState,'running');assert.equal(snapshot().experience,'free');
+ await elements.manualEnter.onclick();assert(snapshot().playing);assert.equal(snapshot().audioState,'running');assert.equal(snapshot().mode,'manual');assert.equal(snapshot().duration,0);assert.equal(JSON.parse(storedPrefs).modeVersion,2);
  const initial=snapshot().stones.map(s=>s.surface);
  elements.fill.onclick();assert.equal(snapshot().water,160);assert(!elements.pour.disabled);
  elements.pour.fire('keydown',{code:'Space',repeat:false});advance(2);elements.pour.fire('keyup',{code:'Space'});
@@ -61,27 +61,20 @@ const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surfa
 
  elements.pause.onclick();const elapsed=snapshot().elapsed;advance(3);assert.equal(snapshot().elapsed,elapsed);elements.pause.onclick();
  durations.find(b=>b.dataset.min==='5').onclick();advance(301);assert(!snapshot().playing);assert.equal(elements.ending.hidden,false);
- elements.backEntrance.onclick();await elements.freeEnter.onclick();durations.find(b=>b.dataset.min==='0').onclick();advance(1201);assert(snapshot().playing);invariant();
+ elements.backEntrance.onclick();await elements.manualEnter.onclick();durations.find(b=>b.dataset.min==='0').onclick();advance(1201);assert(snapshot().playing);invariant();
  elements.manual.onclick();elements.fill.onclick();elements.pour.fire('keydown',{code:'Space',repeat:false});elements.pour.fire('blur');assert(!snapshot().pouring);
  for(let i=0;i<110;i++){clock+=50;tick();frame(clock);}assert(snapshot().lighting.dim<.02);invariant();
  const before=snapshot().elapsed;clock+=15000;tick();assert(snapshot().elapsed>=before+15);
- // Evening ritual has its own clock and never interrupts a partial pour.
- elements.backEntrance.onclick();await elements.enter.onclick();assert.equal(snapshot().phase,'ritual');assert.equal(snapshot().gain,0);advance(15);assert.equal(snapshot().elapsed,0);
- elements.fill.onclick();elements.pour.fire('keydown',{code:'Space',repeat:false});advance(.8);elements.pour.fire('keyup',{code:'Space'});advance(8);assert.equal(snapshot().phase,'ritual');assert(snapshot().water>0);
- elements.putBack.onclick();assert.equal(snapshot().phase,'rest');assert.equal(snapshot().elapsed,0);assert.equal(elements.restControls.hidden,false);
- const leftInLadle=snapshot().water;elements.scene.fire('pointerdown',{pointerId:9,clientX:offset+745*scale,clientY:405*scale});assert.equal(elements.restPanel.hidden,false);assert(!snapshot().pouring);assert.equal(snapshot().water,leftInLadle);
- elements.restPause.onclick();const restElapsed=snapshot().elapsed;advance(5);assert.equal(snapshot().elapsed,restElapsed);assert.equal(elements.restPause.textContent,'再開する');elements.restPause.onclick();
- advance(161);assert.equal(snapshot().phase,'settling');assert.equal(snapshot().pouring,false);advance(21);assert.equal(snapshot().phase,'finished');assert.equal(snapshot().gain,0);assert(snapshot().lighting.dim>.8);assert.equal(elements.ending.hidden,false);
- elements.backEntrance.onclick();assert.equal(snapshot().phase,'idle');assert.equal(elements.welcome.hidden,false);
- await elements.restEnter.onclick();assert.equal(snapshot().phase,'rest');assert.equal(focusedId,'restPause');advance(9);assert.equal(elements.restCue.hidden,true);assert(snapshot().gain>.99);assert.equal(snapshot().secretFound,true);
- // Water leaves long room-bed-only gaps without reducing the session gain.
- let quietSeconds=0,longestQuiet=0,wetSamples=0;
- for(let second=0;second<120;second++){advance(1);if(snapshot().stream===0){quietSeconds++;longestQuiet=Math.max(longestQuiet,quietSeconds);}else{wetSamples++;quietSeconds=0;}assert(snapshot().playing);assert(snapshot().gain>.99);}
- assert(longestQuiet>=30);assert(wetSamples>=8&&wetSamples<40);
- elements.finishEarly.onclick();assert.equal(snapshot().phase,'settling');advance(6);assert(snapshot().playing);assert(snapshot().gain>.9);assert.match(elements.restTime.textContent,/00:1[45]/);advance(15);assert.equal(snapshot().phase,'finished');assert.equal(snapshot().gain,0);
- // Emptying a complete cup hands off only after the last pour and its tail.
- elements.backEntrance.onclick();await elements.enter.onclick();assert.equal(focusedId,'fill');elements.fill.onclick();elements.pour.fire('keydown',{code:'Space',repeat:false});advance(6.3);assert.equal(snapshot().phase,'ritual');assert.equal(snapshot().water,0);advance(3.5);assert.equal(snapshot().phase,'rest');invariant();
- elements.restPause.onclick();elements.finishEarly.onclick();assert.equal(snapshot().phase,'finished');assert(!snapshot().playing);assert.equal(focusedId,'endingTitle');
- elements.backEntrance.onclick();assert.equal(focusedId,'restEnter');await elements.restEnter.onclick();elements.restPause.onclick();assert.equal(elements.anotherPour.textContent,'再開して、もう一杯');elements.anotherPour.onclick();assert.equal(snapshot().phase,'ritual');assert(snapshot().playing);elements.fill.onclick();assert.equal(snapshot().water,160);
- console.log('PASS: free/manual/auto regression; thread/wave fading tails and long room-only gaps; bounded room drift; thermal and render invariants; lighting; partial cup remains manual; explicit/empty-cup handoff; one-tap rest; independent clocks; pause; first tap consumed; gradual entry; supply-free ending; dark finished room; background clock.');
+ // Only two entry points, and neither a partial nor an empty cup changes mode.
+ assert(!elements.restEnter&&!elements.enter&&!elements.freeEnter&&!elements.ritualActions&&!elements.restControls);
+ elements.finish.onclick();assert.equal(snapshot().phase,'settling');advance(21);assert.equal(snapshot().phase,'finished');assert.equal(focusedId,'endingTitle');for(let i=0;i<120;i++){clock+=50;tick();frame(clock);}assert(snapshot().lighting.dim>.8);
+ elements.backEntrance.onclick();assert.equal(focusedId,'manualEnter');await elements.manualEnter.onclick();assert.equal(focusedId,'fill');
+ elements.fill.onclick();elements.pour.fire('keydown',{code:'Space',repeat:false});advance(.8);elements.pour.fire('keyup',{code:'Space'});advance(8);assert.equal(snapshot().mode,'manual');assert(snapshot().water>0);
+ elements.pour.fire('keydown',{code:'Space',repeat:false});advance(10);assert.equal(snapshot().water,0);advance(20);assert.equal(snapshot().mode,'manual');assert.equal(snapshot().phase,'free');
+ elements.finish.onclick();advance(21);elements.backEntrance.onclick();await elements.autoEnter.onclick();assert.equal(snapshot().mode,'auto');assert.equal(focusedId,'auto');assert.equal(snapshot().duration,0);advance(1201);assert(snapshot().playing);assert.equal(snapshot().phase,'free');
+ elements.pause.onclick();const held=snapshot();advance(5);assert.equal(snapshot().elapsed,held.elapsed);elements.finish.onclick();assert.equal(snapshot().phase,'finished');assert(!snapshot().playing);assert.equal(focusedId,'endingTitle');
+ await elements.again.onclick();assert.equal(snapshot().mode,'auto');assert(snapshot().playing);elements.manual.onclick();assert.equal(snapshot().mode,'manual');elements.auto.onclick();assert.equal(snapshot().mode,'auto');
+ durations.find(b=>b.dataset.min==='10').onclick();assert.equal(snapshot().duration,10);
+ const reloadedWindow={...window};vm.runInNewContext(fs.readFileSync('public/app.js','utf8'),{...sandbox,window:reloadedWindow,setInterval(){},requestAnimationFrame(){}});assert.equal(reloadedWindow.yohaku.snapshot().duration,10);
+ console.log('PASS: two-mode entry; legacy timer migration to unlimited; timer persistence; manual never auto-switches; unlimited auto; pause and quiet endings; rain gaps; thread/wave fading tails and long room-only gaps; bounded room drift; thermal/render invariants; lighting; keyboard and background clock.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
