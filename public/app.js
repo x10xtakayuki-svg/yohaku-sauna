@@ -2,6 +2,8 @@
 (() => {
 const $ = id => document.getElementById(id);
 const canvas = $('scene'), ctx = canvas.getContext('2d');
+const nativeAudio=window.YohakuNative||null;let nativeLifecycle='idle';
+function nativeCommand(type,values={}){nativeAudio?.send({type,...values});}
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t;
 let seed=8127; const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
 let prefs={volume:45,distance:60,duration:0,modeVersion:2,flow:35};
@@ -65,6 +67,7 @@ stones.forEach(s=>s.sprite=makeStone(s));
 class Soundscape{
   constructor(){this.ctx=null;this.steam=[];this.lastBubble=0;this.waterLevel=0;}
   async init(){
+    if(nativeAudio){nativeCommand('prepare');return;}
     if(this.ctx){await this.ctx.resume();return;}
     const Audio=window.AudioContext||window.webkitAudioContext;
     if(!Audio)throw new Error('このブラウザでは音声合成を利用できません。');
@@ -89,7 +92,7 @@ class Soundscape{
     const gain=c.createGain();gain.gain.value=.018;this.ambient=gain;roomNoise.connect(filter);filter.connect(gain);gain.connect(this.lowpass);roomNoise.start();
     this.volume();
   }
-  volume(){if(!this.ctx)return;const t=this.ctx.currentTime;this.master.gain.setTargetAtTime(state.playing?prefs.volume/100*.72*state.sessionGain:0,t,state.playing?.4:.3);this.lowpass.frequency.setTargetAtTime(lerp(5600,2800,prefs.distance/100),t,.8);const space=spaciousAuto()&&autoCycle.phase==='space';this.ambient?.gain.setTargetAtTime(.025*(space?1+.025*waterDrift(state.simTime*.4):1),t,2.5);}
+  volume(){if(nativeAudio){const key=[prefs.volume,prefs.distance,prefs.flow].join(',');if(this.nativeSettings!==key){this.nativeSettings=key;nativeCommand('settings',{volume:prefs.volume,distance:prefs.distance,flow:prefs.flow});}return;}if(!this.ctx)return;const t=this.ctx.currentTime;this.master.gain.setTargetAtTime(state.playing?prefs.volume/100*.72*state.sessionGain:0,t,state.playing?.4:.3);this.lowpass.frequency.setTargetAtTime(lerp(5600,2800,prefs.distance/100),t,.8);const space=spaciousAuto()&&autoCycle.phase==='space';this.ambient?.gain.setTargetAtTime(.025*(space?1+.025*waterDrift(state.simTime*.4):1),t,2.5);}
   burst(kind,amount=1,x=740){
     if(!this.ctx||!state.playing)return;const c=this.ctx,t=c.currentTime;
     const source=c.createBufferSource();source.buffer=this.noise;const filter=c.createBiquadFilter();filter.type='bandpass';
@@ -191,37 +194,39 @@ async function start(mode='manual'){
   $('pauseIcon').textContent='Ⅱ';$('pauseText').textContent='ひと休み';$('pause').setAttribute('aria-label','一時停止');document.body.classList.add('playing');
   setMode(mode);sessionUI();sound.volume();announce(mode==='auto'?'オートロウリュを始めます':'セルフロウリュを始めます');
   (mode==='auto'?$('auto'):$('fill')).focus?.({preventScroll:true});
-  if('mediaSession' in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:'余白 — おうちのサウナ',artist:'静かなロウリュ'});navigator.mediaSession.setActionHandler('play',()=>{if(!state.playing)togglePause();});navigator.mediaSession.setActionHandler('pause',()=>{if(state.playing)togglePause();});}
+  if(!nativeAudio&&'mediaSession' in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:'余白 — おうちのサウナ',artist:'静かなロウリュ'});navigator.mediaSession.setActionHandler('play',()=>{if(!state.playing)togglePause();});navigator.mediaSession.setActionHandler('pause',()=>{if(state.playing)togglePause();});}
+  if(nativeAudio){nativeLifecycle='starting';nativeCommand('duration',{value:prefs.duration});nativeCommand('start',{mode,pattern:state.pattern});}
   state.starting=false;for(const id of ['manualEnter','autoEnter'])$(id).disabled=false;
 }
 function beginSettling(){
-  if(state.ended)return;if(!state.playing){end();return;}if(state.phase==='settling')return;
-  state.phase='settling';state.tailTime=0;stopPour();state.stream=0;sessionUI();hint('注水を止めて、最後の余韻を。');
+  if(state.ended)return;if(!state.playing){nativeCommand('finish');end();return;}if(state.phase==='settling')return;
+  nativeCommand('finish');state.phase='settling';state.tailTime=0;stopPour();state.stream=0;sessionUI();hint('注水を止めて、最後の余韻を。');
 }
 function end(){
   state.playing=false;stopPour();state.phase='finished';state.ended=true;state.sessionGain=0;state.stream=0;document.body.classList.remove('playing');sound.volume();
   setFocus(false);$('ending').hidden=false;sessionUI();announce('おかえりなさい。');$('endingTitle').focus?.({preventScroll:true});
 }
 function returnEntrance(){
+  if(nativeAudio){nativeLifecycle='stopping';nativeCommand('stop');}
   state.playing=false;stopPour();state.started=false;state.ended=false;state.phase='idle';state.sessionGain=0;state.stream=0;document.body.classList.remove('playing');sound.volume();setFocus(false);$('ending').hidden=true;$('welcome').hidden=false;sessionUI();$('manualEnter').focus?.({preventScroll:true});
 }
 function togglePause(){
-  if(!state.started||state.ended)return;state.playing=!state.playing;stopPour();
+  if(!state.started||state.ended)return;state.playing=!state.playing;nativeCommand('playing',{value:state.playing});stopPour();
   if(state.playing)sound.init().catch(()=>{});sound.volume();document.body.classList.toggle('playing',state.playing);
   $('pauseIcon').textContent=state.playing?'Ⅱ':'▷';$('pauseText').textContent=state.playing?'ひと休み':'再開する';$('pause').setAttribute('aria-label',state.playing?'一時停止':'再生');sessionUI();
   hint(state.playing?(state.mode==='manual'?'バケツで水を汲んで、石にゆっくり注ぐ。':'何もせず、音にまかせて。'):'ひと休み中。再生ボタンで、またここへ。');
 }
 function fill(){
   if(!state.playing||state.mode!=='manual'||state.phase==='settling')return;
-  state.water=160;state.fillFlash=1;ladle.targetX=403;ladle.targetY=551;sound.burst('fill',1,390);updateWater();hint('石を押し続けると、ゆっくり注げます。');announce('ラドルに水を汲みました');
+  nativeCommand('fill');state.water=160;state.fillFlash=1;ladle.targetX=403;ladle.targetY=551;sound.burst('fill',1,390);updateWater();hint('石を押し続けると、ゆっくり注げます。');announce('ラドルに水を汲みました');
 }
 function beginPour(x=745,y=405){
   if(!state.playing||state.mode!=='manual'||state.water<=0||state.phase==='settling')return;
-  state.pouring=true;ladle.targetX=x;ladle.targetY=y-96;state.pourX=x;state.pourY=y;canvas.classList.add('pouring');$('pour').classList.add('held');
+  nativeCommand('pour',{x,y});state.pouring=true;ladle.targetX=x;ladle.targetY=y-96;state.pourX=x;state.pourY=y;canvas.classList.add('pouring');$('pour').classList.add('held');
 }
-function stopPour(){state.pouring=false;canvas.classList.remove('pouring');$('pour').classList.remove('held');}
+function stopPour(){if(state.pouring)nativeCommand('stopPour');state.pouring=false;canvas.classList.remove('pouring');$('pour').classList.remove('held');}
 function setMode(mode){
-  stopPour();state.mode=mode;state.autoClock=0;state.nextDrop=4.5;resetAutoCycle();document.body.classList.toggle('auto-ambience',mode==='auto');
+  nativeCommand('mode',{value:mode});stopPour();state.mode=mode;state.autoClock=0;state.nextDrop=4.5;resetAutoCycle();document.body.classList.toggle('auto-ambience',mode==='auto');
   for(const [id,m] of [['manual','manual'],['auto','auto']]){$(id).classList.toggle('selected',mode===m);$(id).setAttribute('aria-pressed',String(mode===m));}
   $('manualPanel').hidden=mode!=='manual';$('autoPanel').hidden=mode!=='auto';
   if(mode==='auto'){ladle.targetX=487;ladle.targetY=563;hint('何もせず、音にまかせて。');}else hint('バケツで水を汲んで、石にゆっくり注ぐ。');updateWater();
@@ -237,7 +242,7 @@ canvas.addEventListener('pointerdown',e=>{
   if(p.x>535&&p.x<965&&p.y>280&&p.y<525){if(state.water>0)beginPour(p.x,p.y);else hint('まずは、手前のバケツで水を汲みましょう。');return;}
   if(Math.hypot(p.x-ladle.x,p.y-ladle.y)<130)ladle.drag=true;
 });
-canvas.addEventListener('pointermove',e=>{if(e.pointerId!==pointerId)return;const p=point(e);if(ladle.drag){ladle.targetX=clamp(p.x,300,970);ladle.targetY=clamp(p.y,260,610);}else if(state.pouring){state.pourX=clamp(p.x,565,930);state.pourY=clamp(p.y,330,470);ladle.targetX=state.pourX;ladle.targetY=state.pourY-96;}});
+canvas.addEventListener('pointermove',e=>{if(e.pointerId!==pointerId)return;const p=point(e);if(ladle.drag){ladle.targetX=clamp(p.x,300,970);ladle.targetY=clamp(p.y,260,610);}else if(state.pouring){state.pourX=clamp(p.x,565,930);state.pourY=clamp(p.y,330,470);ladle.targetX=state.pourX;ladle.targetY=state.pourY-96;if(nativeAudio)nativeCommand('pour',{x:state.pourX,y:state.pourY});}});
 function releasePointer(e){if(pointerId!==null&&e.pointerId!==pointerId)return;if(ladle.drag&&Math.hypot(ladle.targetX-395,(ladle.targetY-570)*1.3)<105)fill();ladle.drag=false;pointerId=null;stopPour();}
 canvas.addEventListener('pointerup',releasePointer);canvas.addEventListener('pointercancel',releasePointer);canvas.addEventListener('lostpointercapture',releasePointer);
 $('pour').addEventListener('pointerdown',e=>{if(!state.playing||state.water<=0)return;e.preventDefault();$('pour').setPointerCapture(e.pointerId);beginPour();});
@@ -247,7 +252,7 @@ $('pour').addEventListener('keyup',e=>{if(e.code==='Space'||e.code==='Enter'){e.
 $('pour').addEventListener('blur',stopPour);
 $('fill').onclick=fill;$('manualEnter').onclick=()=>start('manual');$('autoEnter').onclick=()=>start('auto');$('again').onclick=()=>start(state.mode);$('backEntrance').onclick=returnEntrance;$('pause').onclick=togglePause;$('finish').onclick=beginSettling;
 $('manual').onclick=()=>setMode('manual');$('auto').onclick=()=>setMode('auto');
-document.querySelectorAll('[data-pattern]').forEach(b=>b.onclick=()=>{state.pattern=b.dataset.pattern;state.autoClock=0;state.nextDrop=4.5;resetAutoCycle();document.querySelectorAll('[data-pattern]').forEach(v=>{v.classList.toggle('selected',v===b);v.setAttribute('aria-pressed',String(v===b));});announce(b.firstChild.textContent+'を選びました');});
+document.querySelectorAll('[data-pattern]').forEach(b=>b.onclick=()=>{state.pattern=b.dataset.pattern;nativeCommand('pattern',{value:state.pattern});state.autoClock=0;state.nextDrop=4.5;resetAutoCycle();document.querySelectorAll('[data-pattern]').forEach(v=>{v.classList.toggle('selected',v===b);v.setAttribute('aria-pressed',String(v===b));});announce(b.firstChild.textContent+'を選びました');});
 $('focus').onclick=()=>setFocus(!state.focus);$('restore').onclick=()=>setFocus(false);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){setFocus(false);}});
 $('settings').onclick=()=>{stopPour();syncDuration();$('settingsDialog').showModal();};$('help').onclick=()=>{stopPour();$('helpDialog').showModal();};
@@ -264,14 +269,40 @@ function syncLabels(){
   $('distanceValue').textContent=prefs.distance>65?'少し離れて':prefs.distance>30?'ベンチから':'ストーブの近く';$('flow').nextElementSibling.textContent=prefs.flow>65?'たっぷり':prefs.flow>35?'ほどよく':'細く';
 }
 function syncDuration(){document.querySelectorAll('[data-min]').forEach(b=>{const active=Number(b.dataset.min)===prefs.duration;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});document.body.classList.toggle('untimed',prefs.duration===0);}
-document.querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>{prefs.duration=Number(b.dataset.min);state.elapsed=0;if(state.phase==='settling'){state.phase='free';state.tailTime=0;sessionUI();}syncDuration();save();updateTimer();});
+document.querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>{prefs.duration=Number(b.dataset.min);nativeCommand('duration',{value:prefs.duration});state.elapsed=0;if(state.phase==='settling'){state.phase='free';state.tailTime=0;sessionUI();}syncDuration();save();updateTimer();});
 function updateTimer(){const seconds=state.phase==='settling'?Math.max(0,Math.ceil(20-state.tailTime)):Math.max(0,Math.ceil(prefs.duration*60-state.elapsed));$('sessionTime').textContent=prefs.duration?String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0'):'時間制限なし';}
 syncLabels();sessionUI();save();
 window.addEventListener('blur',()=>{stopPour();ladle.drag=false;pointerId=null;});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopPour();previous=performance.now();}});
 
 
+// Native snapshots are authoritative. Polling may stop while the phone is
+// locked; the native audio callback continues the model and sends fresh state
+// when the view returns. Never echo a snapshot back as a playback command.
+window.addEventListener('yohaku-native-state',event=>{
+  if(!nativeAudio)return;const s=event.detail;
+  if(!s||!['elapsed','gain','water','stream','pourX','pourY','tailTime'].every(k=>Number.isFinite(s[k]))||s.version!==1||!['manual','auto'].includes(s.mode)||!['idle','free','settling','finished'].includes(s.phase)||!Array.isArray(s.stones)||s.stones.length!==stones.length)return;
+  if(nativeLifecycle==='stopping'){if(!s.started)nativeLifecycle='idle';else return;}
+  if(nativeLifecycle==='starting'&&(!s.started||s.phase==='finished'))return;
+  if(!s.started){if(state.started){state.started=false;state.playing=false;state.phase='idle';state.ended=false;$('welcome').hidden=false;$('ending').hidden=true;document.body.classList.remove('playing');sessionUI();}return;}
+  const wasEnded=state.ended;nativeLifecycle='active';
+  for(const key of ['started','playing','pouring','mode','pattern','phase','elapsed','water','stream','pourX','pourY','tailTime'])state[key]=s[key];
+  state.sessionGain=s.gain;state.ended=s.phase==='finished';state.simTime=s.elapsed+s.tailTime;
+  s.stones.forEach((v,i)=>{const stone=stones[i];if(![v.surface,v.core,v.water,v.evaporation,v.wet,v.light].every(Number.isFinite))return;stone.ts=v.surface;stone.tc=v.core;stone.water=v.water;stone.evap=v.evaporation;stone.wet=v.wet;stone.light=v.light;});
+  $('welcome').hidden=true;$('ending').hidden=!state.ended;document.body.classList.toggle('playing',state.playing);document.body.classList.toggle('auto-ambience',state.mode==='auto');
+  for(const [id,mode] of [['manual','manual'],['auto','auto']]){$(id).classList.toggle('selected',state.mode===mode);$(id).setAttribute('aria-pressed',String(state.mode===mode));}
+  document.querySelectorAll('[data-pattern]').forEach(b=>{const selected=b.dataset.pattern===state.pattern;b.classList.toggle('selected',selected);b.setAttribute('aria-pressed',String(selected));});
+  $('manualPanel').hidden=state.mode!=='manual';$('autoPanel').hidden=state.mode!=='auto';$('pauseIcon').textContent=state.playing?'Ⅱ':'▷';$('pauseText').textContent=state.playing?'ひと休み':'再開する';$('pause').setAttribute('aria-label',state.playing?'一時停止':'再生');
+  canvas.classList.toggle('pouring',state.pouring);$('pour').classList.toggle('held',state.pouring);sessionUI();
+  if(state.ended&&!wasEnded){setFocus(false);announce('おかえりなさい。');$('endingTitle').focus?.({preventScroll:true});}
+});
+window.addEventListener('yohaku-native-error',event=>{
+  if(!nativeAudio)return;nativeLifecycle='idle';state.started=false;state.playing=false;state.phase='idle';state.ended=false;state.pouring=false;
+  $('welcome').hidden=false;$('ending').hidden=true;$('welcome').querySelector('p').textContent=event.detail?.message||'音を再生できませんでした。もう一度お試しください。';document.body.classList.remove('playing');sessionUI();
+});
+
 function simulate(dt){
+  if(nativeAudio){state.fillFlash=Math.max(0,state.fillFlash-dt*.8);if(state.playing&&!reducedMotion)for(const s of stones){if(s.evap>.05&&Math.random()<s.evap*dt*2.4&&particles.length<190){const life=2.5+Math.random()*2;particles.push({kind:'steam',x:s.x,y:s.y-10,vx:(Math.random()-.5)*13,vy:-14-Math.random()*18,life,max:life,size:14+Math.random()*15});}}return;}
   if(!state.playing){sound.update(dt);return;}
   state.simTime+=dt;state.audibleTime+=dt;state.fillFlash=Math.max(0,state.fillFlash-dt*.8);state.secretGlow=Math.max(0,state.secretGlow-dt);state.stream=0;
   if(state.phase==='free'){
@@ -486,7 +517,7 @@ requestAnimationFrame(render);
 // Keep the session clock and audio moving independently of drawing. Browsers
 // can throttle background timers, so recover wall time without a burst of sound.
 let lastTick=performance.now();
-setInterval(()=>{const now=performance.now(),delta=Math.max(0,(now-lastTick)/1000);lastTick=now;const step=Math.min(.2,delta);if(state.playing&&delta>step){const missed=delta-step;state.audibleTime+=missed;if(state.phase==='free')state.elapsed+=missed;if(state.phase==='settling')state.tailTime+=missed;if(state.mode==='auto')state.autoClock+=missed;}simulate(step);},50);
+setInterval(()=>{const now=performance.now(),delta=Math.max(0,(now-lastTick)/1000);lastTick=now;const step=Math.min(.2,delta);if(!nativeAudio&&state.playing&&delta>step){const missed=delta-step;state.audibleTime+=missed;if(state.phase==='free')state.elapsed+=missed;if(state.phase==='settling')state.tailTime+=missed;if(state.mode==='auto')state.autoClock+=missed;}simulate(step);},50);
 // A small read-only diagnostic surface for checking physical invariants.
-window.yohaku={snapshot:()=>({started:state.started,playing:state.playing,mode:state.mode,pattern:state.pattern,duration:prefs.duration,phase:state.phase,gain:state.sessionGain,stream:state.stream,nextDrop:state.nextDrop,autoCycle:{...autoCycle},waterLevel:sound.waterLevel,roomLevel:sound.ambient?.gain.value||0,tailTime:state.tailTime,water:state.water,elapsed:state.elapsed,pouring:state.pouring,secretFound:state.secretFound,lighting:{dim:state.autoDim,activeSpots:stones.filter(s=>s.light>.01).length},audioState:sound.ctx?.state||'not-started',stones:stones.map(s=>({x:s.x,y:s.y,lucky:s.lucky,surface:s.ts,core:s.tc,water:s.water,evaporation:s.evap,light:s.light})),particles:particles.length})};
+window.yohaku={snapshot:()=>({started:state.started,playing:state.playing,mode:state.mode,pattern:state.pattern,duration:prefs.duration,phase:state.phase,gain:state.sessionGain,stream:state.stream,nextDrop:state.nextDrop,autoCycle:{...autoCycle},waterLevel:sound.waterLevel,roomLevel:sound.ambient?.gain.value||0,tailTime:state.tailTime,water:state.water,elapsed:state.elapsed,pouring:state.pouring,secretFound:state.secretFound,lighting:{dim:state.autoDim,activeSpots:stones.filter(s=>s.light>.01).length},audioState:nativeAudio?'native':sound.ctx?.state||'not-started',stones:stones.map(s=>({x:s.x,y:s.y,lucky:s.lucky,surface:s.ts,core:s.tc,water:s.water,evaporation:s.evap,light:s.light})),particles:particles.length})};
 })();

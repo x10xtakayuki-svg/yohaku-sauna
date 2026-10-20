@@ -8,3 +8,15 @@ node_modules/
 *.zip
 *.tar.gz
 .DS_Store
+mobile/ios/Web/
+mobile/ios/DerivedData/
+mobile/ios/**/*.xcuserstate
+mobile/android/app/src/main/assets/Web/
+mobile/android/.gradle/
+mobile/android/**/build/
+mobile/android/local.properties
+build/
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
