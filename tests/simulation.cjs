@@ -25,6 +25,10 @@ const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surfa
 (async()=>{
  frame(clock);
  await elements.manualEnter.onclick();assert(snapshot().playing);assert.equal(snapshot().audioState,'running');assert.equal(snapshot().mode,'manual');assert.equal(snapshot().duration,0);assert.equal(JSON.parse(storedPrefs).modeVersion,2);
+ // Both visible and settings volume controls stay in sync; unmute restores level.
+ elements.quickVolume.value='27';elements.quickVolume.fire('input');assert.equal(Number(elements.volume.value),27);assert.equal(elements.quickVolumeValue.textContent,'27%');assert.equal(JSON.parse(storedPrefs).volume,27);
+ elements.mute.onclick();assert.equal(Number(elements.quickVolume.value),0);assert.equal(elements.volumeCross.style.display,'');elements.mute.onclick();assert.equal(Number(elements.quickVolume.value),27);
+ elements.volume.value='43';elements.volume.fire('input');assert.equal(Number(elements.quickVolume.value),43);elements.mute.onclick();elements.mute.onclick();assert.equal(Number(elements.volume.value),43);
  const initial=snapshot().stones.map(s=>s.surface);
  elements.fill.onclick();assert.equal(snapshot().water,160);assert(!elements.pour.disabled);
  elements.pour.fire('keydown',{code:'Space',repeat:false});advance(2);elements.pour.fire('keyup',{code:'Space'});
@@ -71,10 +75,10 @@ const invariant=()=>snapshot().stones.forEach(s=>{assert(Number.isFinite(s.surfa
  elements.backEntrance.onclick();assert.equal(focusedId,'manualEnter');await elements.manualEnter.onclick();assert.equal(focusedId,'fill');
  elements.fill.onclick();elements.pour.fire('keydown',{code:'Space',repeat:false});advance(.8);elements.pour.fire('keyup',{code:'Space'});advance(8);assert.equal(snapshot().mode,'manual');assert(snapshot().water>0);
  elements.pour.fire('keydown',{code:'Space',repeat:false});advance(10);assert.equal(snapshot().water,0);advance(20);assert.equal(snapshot().mode,'manual');assert.equal(snapshot().phase,'free');
- elements.finish.onclick();advance(21);elements.backEntrance.onclick();await elements.autoEnter.onclick();assert.equal(snapshot().mode,'auto');assert.equal(focusedId,'auto');assert.equal(snapshot().duration,0);advance(1201);assert(snapshot().playing);assert.equal(snapshot().phase,'free');
+ elements.finish.onclick();advance(21);elements.backEntrance.onclick();await elements.autoEnter.onclick();assert.equal(snapshot().mode,'auto');assert.equal(focusedId,'auto');elements.quickVolume.value='35';elements.quickVolume.fire('input');assert.equal(Number(elements.volume.value),35);assert.equal(snapshot().duration,0);advance(1201);assert(snapshot().playing);assert.equal(snapshot().phase,'free');
  elements.pause.onclick();const held=snapshot();advance(5);assert.equal(snapshot().elapsed,held.elapsed);elements.finish.onclick();assert.equal(snapshot().phase,'finished');assert(!snapshot().playing);assert.equal(focusedId,'endingTitle');
  await elements.again.onclick();assert.equal(snapshot().mode,'auto');assert(snapshot().playing);elements.manual.onclick();assert.equal(snapshot().mode,'manual');elements.auto.onclick();assert.equal(snapshot().mode,'auto');
  durations.find(b=>b.dataset.min==='10').onclick();assert.equal(snapshot().duration,10);
  const reloadedWindow={...window};vm.runInNewContext(fs.readFileSync('public/app.js','utf8'),{...sandbox,window:reloadedWindow,setInterval(){},requestAnimationFrame(){}});assert.equal(reloadedWindow.yohaku.snapshot().duration,10);
- console.log('PASS: two-mode entry; legacy timer migration to unlimited; timer persistence; manual never auto-switches; unlimited auto; pause and quiet endings; rain gaps; thread/wave fading tails and long room-only gaps; bounded room drift; thermal/render invariants; lighting; keyboard and background clock.');
+ console.log('PASS: two-mode entry; visible volume/mute and settings synchronization; legacy timer migration to unlimited; timer persistence; manual never auto-switches; unlimited auto; pause and quiet endings; rain gaps; thread/wave fading tails and long room-only gaps; bounded room drift; thermal/render invariants; lighting; keyboard and background clock.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -46,3 +46,5 @@ button{min-height:44px}.icon-button{width:44px;height:44px}.restore{min-height:4
  .welcome{overflow:auto;place-items:start center}.welcome-inner{margin:auto;padding:16px 24px}
  .welcome h2{font-size:23px;margin:10px 0}.welcome p{font-size:10px;line-height:1.8}.entry-choices{flex-direction:row;width:540px;gap:12px;margin:14px auto}.entry-mode{flex:1;min-height:64px;padding:10px 14px}.welcome-foot{margin-top:8px}
 }
+
+.volume-control{display:flex;align-items:center;justify-content:center;gap:12px;min-height:54px;border-bottom:1px solid var(--line);color:#9eae94;font-size:10px}.volume-control .icon-button{flex:none}.volume-control svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.2}.volume-control input{width:150px;max-width:40vw;height:44px;padding:18px 0}.volume-control>span{min-width:32px;font-variant-numeric:tabular-nums}

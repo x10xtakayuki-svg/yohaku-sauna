@@ -252,8 +252,17 @@ $('focus').onclick=()=>setFocus(!state.focus);$('restore').onclick=()=>setFocus(
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){setFocus(false);}});
 $('settings').onclick=()=>{stopPour();syncDuration();$('settingsDialog').showModal();};$('help').onclick=()=>{stopPour();$('helpDialog').showModal();};
 for(const id of ['settingsDialog','helpDialog'])$(id).addEventListener('click',e=>{if(e.target===$(id)){const r=$(id).getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$(id).close();}});
-for(const id of ['volume','distance','flow']){$(id).value=prefs[id];$(id).addEventListener('input',()=>{prefs[id]=Number($(id).value);syncLabels();save();sound.volume();});}
-function syncLabels(){$('volumeValue').textContent=prefs.volume+'%';$('distanceValue').textContent=prefs.distance>65?'少し離れて':prefs.distance>30?'ベンチから':'ストーブの近く';$('flow').nextElementSibling.textContent=prefs.flow>65?'たっぷり':prefs.flow>35?'ほどよく':'細く';}
+let lastVolume=prefs.volume||45;
+function setVolume(value){prefs.volume=clamp(Number(value)||0,0,100);if(prefs.volume>0)lastVolume=prefs.volume;syncLabels();save();sound.volume();}
+for(const id of ['volume','quickVolume'])$(id).addEventListener('input',()=>setVolume($(id).value));
+$('mute').onclick=()=>setVolume(prefs.volume===0?lastVolume:0);
+for(const id of ['distance','flow']){$(id).value=prefs[id];$(id).addEventListener('input',()=>{prefs[id]=Number($(id).value);syncLabels();save();sound.volume();});}
+function syncLabels(){
+  for(const id of ['volume','quickVolume'])$(id).value=prefs.volume;
+  $('volumeValue').textContent=prefs.volume+'%';$('quickVolumeValue').textContent=prefs.volume+'%';
+  $('mute').setAttribute('aria-label',prefs.volume===0?'消音を解除':'消音する');$('mute').setAttribute('aria-pressed',String(prefs.volume===0));$('volumeCross').style.display=prefs.volume===0?'':'none';$('volumeWaves').style.display=prefs.volume===0?'none':'';
+  $('distanceValue').textContent=prefs.distance>65?'少し離れて':prefs.distance>30?'ベンチから':'ストーブの近く';$('flow').nextElementSibling.textContent=prefs.flow>65?'たっぷり':prefs.flow>35?'ほどよく':'細く';
+}
 function syncDuration(){document.querySelectorAll('[data-min]').forEach(b=>{const active=Number(b.dataset.min)===prefs.duration;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});document.body.classList.toggle('untimed',prefs.duration===0);}
 document.querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>{prefs.duration=Number(b.dataset.min);state.elapsed=0;if(state.phase==='settling'){state.phase='free';state.tailTime=0;sessionUI();}syncDuration();save();updateTimer();});
 function updateTimer(){const seconds=state.phase==='settling'?Math.max(0,Math.ceil(20-state.tailTime)):Math.max(0,Math.ceil(prefs.duration*60-state.elapsed));$('sessionTime').textContent=prefs.duration?String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0'):'時間制限なし';}
